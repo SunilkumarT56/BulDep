@@ -1,1 +1,0 @@
-{"version":3,"sources":["turbopack:///[project]/app/page.jsx"],"sourcesContent":["export default function Home() {\n  return (\n    <main>HomePage</main>\n  );\n}\n"],"names":[],"mappings":"yTAAe,SAAS,IACtB,MACE,CAAA,EAAA,EAAA,GAAA,EAAC,OAAA,UAAK,YAEV"}
