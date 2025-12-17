@@ -1,0 +1,1 @@
+{"root":["./src/index.ts","./src/conifg/db.ts","./src/controllers/deploycontroller.ts","./src/controllers/webhook.ts","./src/models/repo.ts","./src/models/user.ts","./src/routes/deployrouter.ts","./src/routes/webhookroutes.ts","./src/s3/deletes3files.ts","./src/s3/s3client.ts","./src/s3/uploadtos3.ts","./src/utils/clearfolder.ts","./src/utils/file.ts"],"version":"5.9.3"}

@@ -1,0 +1,33 @@
+# Ignore node modules (we install inside docker)
+node_modules
+
+# Ignore build output (we copy dist from builder stage only)
+dist
+
+# Ignore logs
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+pnpm-debug.log
+
+# Ignore env files (NEVER add .env to Docker image)
+.env
+.env.*
+
+# Ignore git stuff
+.git
+.gitignore
+.github
+
+# Ignore editor / system files
+.vscode
+.idea
+.DS_Store
+
+# Ignore docker files
+Dockerfile
+docker-compose.yml
+
+# Ignore temporary files
+*.swp
+*.tsbuildinfo

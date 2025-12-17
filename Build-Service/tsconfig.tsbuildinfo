@@ -1,0 +1,1 @@
+{"root":["./src/index.ts","./src/s3/s3client.ts","./src/s3/uploadtos3.ts","./src/controller/downloads3files.ts","./src/utils/clearfolders.ts","./src/utils/files.ts","./src/worker/builder.ts"],"version":"5.9.3"}

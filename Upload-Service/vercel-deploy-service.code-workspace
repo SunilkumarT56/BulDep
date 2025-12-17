@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"path": "../vercel-deploy-service"
+		},
+		{
+			"path": "../vercel-req-handler-service"
+		},
+		{
+			"path": "../vercel-routes-handler"
+		},
+		{
+			"path": "."
+		}
+	]
+}
