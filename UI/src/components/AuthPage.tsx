@@ -9,7 +9,7 @@ interface AuthPageProps {
   onLogin: () => void;
 }
 
-export function AuthPage({ onLogin }: AuthPageProps) {
+export function AuthPage({ onLogin: _onLogin }: AuthPageProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [email, setEmail] = useState("");
@@ -71,12 +71,12 @@ export function AuthPage({ onLogin }: AuthPageProps) {
                 Continue with Google
             </Button>
             <Button 
-                variant="outline" 
+                variant="outline"    // https://untolerative-len-rumblingly.ngrok-free.dev
                 type="button" 
                 disabled={isLoading} 
                 className="w-full border-white/10 bg-black text-white hover:bg-white/5 hover:text-white h-10"
-                onClick={() => window.location.href = "https://untolerative-len-rumblingly.ngrok-free.dev/auth/github/init"}
-            >
+                onClick={() => window.location.href = "https://untolerative-len-rumblingly.ngrok-free.dev/auth/github"}
+            > 
                 <Github className="mr-2 h-4 w-4" />
                 Continue with GitHub
             </Button>

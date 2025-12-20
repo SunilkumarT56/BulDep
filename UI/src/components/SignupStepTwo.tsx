@@ -48,7 +48,7 @@ export function SignupStepTwo() {
             <Button 
                 variant="outline" 
                 className="w-full border-white/10 bg-black text-white hover:bg-white/5 hover:text-white h-10 justify-start px-4"
-                onClick={() => window.location.href = "https://untolerative-len-rumblingly.ngrok-free.dev/auth/github/init"}
+                onClick={() => window.location.href = "https://untolerative-len-rumblingly.ngrok-free.dev/auth/github"}
             >
                 <Github className="mr-3 h-4 w-4" />
                 Continue with GitHub

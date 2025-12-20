@@ -10,7 +10,7 @@ interface ProjectCardProps {
   status?: "ready" | "error" | "building";
 }
 
-export function ProjectCard({ name, domain, repo, lastCommit, timeAgo, status = "ready" }: ProjectCardProps) {
+export function ProjectCard({ name, domain, repo, lastCommit, timeAgo, status: _status = "ready" }: ProjectCardProps) {
   return (
     <div className="group relative flex flex-col justify-between rounded-lg border border-white/5 bg-black p-4 hover:border-white/10 transition-colors">
       <div className="flex items-start justify-between">

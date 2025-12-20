@@ -18,7 +18,7 @@ export function Hero() {
 
     const pollStatus = async () => {
       try {
-        const response = await fetch(`http://localhost:5001/api/status?id=${uploadId}`);
+        const response = await fetch(`https://untolerative-len-rumblingly.ngrok-free.dev/api/status?id=${uploadId}`);
         const data = await response.json();
         // Backend returns { status: string | null }
         // If status is null (not found yet), we might be pending or starting
@@ -51,7 +51,7 @@ export function Hero() {
     setStatus("uploading"); // Initial optimistic status
     
     try {
-      const response = await fetch("http://localhost:7002/api/upload/deploy", {
+      const response = await fetch("https://untolerative-len-rumblingly.ngrok-free.dev/api/upload/deploy", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

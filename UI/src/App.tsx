@@ -10,9 +10,9 @@ import { SignupPage } from "@/components/SignupPage";
 import { SignupStepTwo } from "@/components/SignupStepTwo";
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem("isAuthenticated") === "true";
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -25,30 +25,33 @@ function App() {
         setIsAuthenticated(true);
         // Clean up URL
         window.history.replaceState({}, document.title, window.location.pathname);
+        setIsAuthChecking(false);
       } else {
-         // 2. Check session endpoint
+             // 2. Check session endpoint
          try {
-             // Try port 3000 first as per AuthPage.tsx
-             const response = await fetch("http://localhost:3000/auth/me", {
+             // Use the correct backend URL
+             const response = await fetch("https://untolerative-len-rumblingly.ngrok-free.dev/user/me", {
                  credentials: "include"
              });
              if (response.ok) {
                  const data = await response.json();
-                 if (data.user || data.authenticated) { // Adjust based on actual response
+                 if (data.authenticated) {
                      localStorage.setItem("isAuthenticated", "true");
                      setIsAuthenticated(true);
+                     if (data.user && data.user.email) {
+                        setUserEmail(data.user.email);
+                     }
                  }
              }
          } catch (e) {
              console.log("Session check failed", e);
+         } finally {
+            setIsAuthChecking(false);
          }
       }
     };
     
-    // Run once on mount
-    if (!isAuthenticated) {
-        checkAuth();
-    }
+    checkAuth();
   }, []);
 
   const handleLogin = () => {
@@ -58,17 +61,33 @@ function App() {
 
   const handleLogout = async () => {
     try {
-      await fetch("https://untolerative-len-rumblingly.ngrok-free.dev/logout", {
+      const response = await fetch("https://untolerative-len-rumblingly.ngrok-free.dev/auth/logout", {
         method: "POST",
         credentials: "include",
       });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.redirectTo) {
+          window.location.href = data.redirectTo;
+          return;
+        }
+      }
     } catch (error) {
       console.error("Logout request failed", error);
     } finally {
       localStorage.removeItem("isAuthenticated");
       setIsAuthenticated(false);
+      setUserEmail(null);
     }
   };
+
+  if (isAuthChecking) {
+      return (
+          <div className="min-h-screen bg-black flex items-center justify-center text-white">
+              <div className="animate-pulse">Loading...</div>
+          </div>
+      );
+  }
 
   return (
     <Routes>
@@ -88,7 +107,7 @@ function App() {
           !isAuthenticated ? (
             <SignupPage />
           ) : (
-             <Navigate to="/dashboard" replace />
+            <Navigate to="/dashboard" replace />
           )
         } 
       />
@@ -111,7 +130,7 @@ function App() {
         element={
           isAuthenticated ? (
             <div className="min-h-screen bg-black text-white selection:bg-white/20 selection:text-white font-sans antialiased">
-              <Header onLogout={handleLogout} />
+              <Header onLogout={handleLogout} userEmail={userEmail} />
               <main>
                 <Dashboard />
               </main>
@@ -136,7 +155,7 @@ function App() {
         element={
           isAuthenticated ? (
             <div className="min-h-screen bg-black text-white selection:bg-white/20 selection:text-white font-sans antialiased">
-              <Header onLogout={handleLogout} />
+              <Header onLogout={handleLogout} userEmail={userEmail} />
               <main>
                 <Hero />
               </main>

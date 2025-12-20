@@ -1,8 +1,10 @@
 import type { Request, Response } from "express";
 import crypto from "crypto";
+import jwt from "jsonwebtoken";
 import axios from "axios";
 import { prisma } from "../config/postgresql.js";
 import type { User } from "../types/auth.js";
+import { generateJWT, generateJWTForName } from "../utils/jwt.js";
 
 export const getName = async (req: Request, res: Response): Promise<void> => {
   const { name } = req.body;
@@ -11,11 +13,14 @@ export const getName = async (req: Request, res: Response): Promise<void> => {
       name,
     },
   });
-  res.cookie("temp_user_id", user.id, {
+  const token: string = generateJWTForName(user.id);
+  res.cookie("temp_user_token", token, {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: "none",
     secure: true,
+    path: "/",
   });
+  res.json({ status: true });
 };
 
 export const oauthGithubController = async (
@@ -33,7 +38,7 @@ export const oauthGithubController = async (
   res.cookie("github_oauth_state", state, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: true,
     path: "/",
   });
 
@@ -45,9 +50,9 @@ export const redirectHandlerGithubController = async (
   res: Response
 ): Promise<void> => {
   const { code, state } = req.query;
-  const { github_oauth_state, temp_user_id } = req.cookies;
+  const { github_oauth_state, temp_user_token } = req.cookies;
   const storedState = github_oauth_state;
-  if (!temp_user_id) {
+  if (!temp_user_token) {
     res.status(400).json({ status: false, error: "User context missing" });
     return;
   }
@@ -92,8 +97,12 @@ export const redirectHandlerGithubController = async (
     updated_at: Date.now(),
   };
   console.log(user);
+  const jsonwebtoken = jwt.verify(temp_user_token, process.env.JWT_SECRET!) as {
+    userId: string;
+  };
+  const userId = jsonwebtoken.userId;
   await prisma.users.update({
-    where: { id: temp_user_id },
+    where: { id: userId },
     data: {
       email: user.email,
       avatar_url: user.avatar_url,
@@ -102,12 +111,22 @@ export const redirectHandlerGithubController = async (
     },
   });
 
-  const jwt = "SIGNED_JWT_HERE";
+  const token: string = generateJWT(user.email);
+  res.clearCookie("temp_user_token", { path: "/" });
+  res.clearCookie("github_oauth_state", { path: "/" });
+  const isProd = process.env.NODE_ENV === "production";
 
-  res.cookie("auth_token", jwt, {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-  });
-  res.redirect(302, "");
+res.cookie("auth_token", token, {
+  httpOnly: true,
+  sameSite: "none",
+  secure: false,
+  path: "/",
+});
+
+  res.redirect(302, "http://localhost:5173/dashboard");
+};
+
+export const logoutController = async (req: Request, res: Response) => {
+  res.clearCookie("auth_token", { path: "/" });
+  res.json({ status: true });
 };

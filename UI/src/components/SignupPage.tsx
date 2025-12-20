@@ -6,12 +6,44 @@ import { Logo } from "@/components/Logo";
 
 export function SignupPage() {
   const [username, setUsername] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (username.trim()) {
+    if (!username.trim()) return;
+
+    setIsLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch("https://untolerative-len-rumblingly.ngrok-free.dev/auth/get-username", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ name: username }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to process username");
+      }
+
+      const data = await response.json();
+      
+      if (data.redirectTo) {
+         window.location.href = data.redirectTo;
+         return;
+      }
+
       navigate(`/signup/connect?username=${encodeURIComponent(username)}`);
+    } catch (err) {
+      setError("Something went wrong. Please try again.");
+      console.error(err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -38,14 +70,20 @@ export function SignupPage() {
               type="text"
               autoCapitalize="none"
               autoCorrect="off"
+              disabled={isLoading}
               className="bg-black border-white/10 text-white placeholder:text-zinc-500 focus-visible:ring-white/20 h-10"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
             />
           </div>
-          <Button className="bg-white text-black hover:bg-zinc-200 h-10 font-medium">
-            Continue
+          
+          {error && (
+            <p className="text-sm text-red-500 text-center">{error}</p>
+          )}
+
+          <Button disabled={isLoading} className="bg-white text-black hover:bg-zinc-200 h-10 font-medium">
+            {isLoading ? "Processing..." : "Continue"}
           </Button>
         </form>
 
