@@ -1,1 +1,1 @@
-{"root":["./src/index.ts","./src/controllers/auth.controller.ts","./src/controllers/user.controller.ts","./src/middleware/auth.middleware.ts","./src/routes/auth.routes.ts","./src/services/user.service.ts","./src/types/interface.ts"],"version":"5.9.3"}
+{"root":["./src/index.ts","./src/prisma.config.ts","./src/controllers/auth.controller.ts","./src/controllers/user.controller.ts","./src/middleware/auth.middleware.ts","./src/routes/auth.routes.ts","./src/services/user.service.ts","./src/types/interface.ts"],"version":"5.9.3"}
