@@ -1,5 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
+import dotenv from "dotenv"
+dotenv.config();
 
 export const authMiddleware = async (
   req: Request,
@@ -14,9 +16,9 @@ export const authMiddleware = async (
       return;
     }
     const decoded = jwt.verify(auth_token, process.env.JWT_SECRET!) as {
-      email: string;
+      userId: string;
     };
-    (req as any).user = { email: decoded.email };
+    (req as any).user = { id: decoded.userId };
     next();
     return;
   } catch (error) {

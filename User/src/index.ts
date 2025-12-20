@@ -2,6 +2,9 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import authRoutes from "./routes/auth.routes.js";
+import dotenv from "dotenv";
+dotenv.config();
+
 
 const PORT = 7004;
 

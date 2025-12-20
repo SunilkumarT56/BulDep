@@ -76,6 +76,7 @@ function App() {
       console.error("Logout request failed", error);
     } finally {
       localStorage.removeItem("isAuthenticated");
+      localStorage.removeItem("logged_in");
       setIsAuthenticated(false);
       setUserEmail(null);
     }

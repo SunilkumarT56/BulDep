@@ -14,12 +14,14 @@
     "@types/express": "^5.0.6",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "typescript": "^5.9.3"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
+    "@types/dotenv": "^6.1.1",
     "@types/jsonwebtoken": "^9.0.10",
     "jsonwebtoken": "^9.0.3"
   }

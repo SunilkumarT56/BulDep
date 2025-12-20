@@ -51,17 +51,37 @@ export const redirectHandlerGithubController = async (
 ): Promise<void> => {
   const { code, state } = req.query;
   const { github_oauth_state, temp_user_token } = req.cookies;
-  const storedState = github_oauth_state;
+
+  // 1. CSRF FIRST
+  if (!state || state !== github_oauth_state) {
+    res.status(401).json({ error: "Invalid OAuth state" });
+    return 
+  }
+
   if (!temp_user_token) {
-    res.status(400).json({ status: false, error: "User context missing" });
-    return;
+    res.status(400).json({ error: "Missing temp token" });
+    return 
   }
-  if (!state || !storedState || state !== storedState) {
-    res
-      .status(401)
-      .json({ status: false, error: "Invalid OAuth state (CSRF detected)" });
-    return;
+
+  // 2. Verify temp token ONCE
+  const payload = jwt.verify(
+    temp_user_token,
+    process.env.JWT_SECRET!
+  ) as { userId: string };
+
+  const userId = payload.userId;
+
+  // 3. Fetch user
+  const user = await prisma.users.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user || user.status !== "active") {
+    res.status(400).json({ error: "Invalid user" });
+    return ;
   }
+
+  // 4. GitHub token exchange
   const tokenRes = await axios.post(
     "https://github.com/login/oauth/access_token",
     {
@@ -73,59 +93,49 @@ export const redirectHandlerGithubController = async (
   );
 
   const accessToken = tokenRes.data.access_token;
-
   if (!accessToken) {
-    res
-      .status(401)
-      .json({ status: false, error: "OAuth token exchange failed" });
-    return;
+  res.status(401).json({ error: "OAuth failed" });
+  return;
   }
-  const userRes = await axios.get("https://api.github.com/user", {
+
+  // 5. Fetch GitHub profile
+  const ghUser = await axios.get("https://api.github.com/user", {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 
-  const emailRes = await axios.get("https://api.github.com/user/emails", {
+  const ghEmails = await axios.get("https://api.github.com/user/emails", {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 
-  const primaryEmail = emailRes.data.find((e: any) => e.primary)?.email;
+  const primaryEmail = ghEmails.data.find((e: any) => e.primary)?.email;
 
-  const user: User = {
-    avatar_url: userRes.data.avatar_url ?? null,
-    email: primaryEmail ?? null,
-    status: "active",
-    updated_at: Date.now(),
-  };
-  console.log(user);
-  const jsonwebtoken = jwt.verify(temp_user_token, process.env.JWT_SECRET!) as {
-    userId: string;
-  };
-  const userId = jsonwebtoken.userId;
+  // 6. Update user
   await prisma.users.update({
     where: { id: userId },
     data: {
-      email: user.email,
-      avatar_url: user.avatar_url,
-      status: user.status,
+      email: primaryEmail,
+      avatar_url: ghUser.data.avatar_url,
       updated_at: new Date(),
     },
   });
 
-  const token: string = generateJWT(user.email);
-  res.clearCookie("temp_user_token", { path: "/" });
-  res.clearCookie("github_oauth_state", { path: "/" });
+  // 7. Issue final auth token
+  const authToken = generateJWT(userId)
+
   const isProd = process.env.NODE_ENV === "production";
 
-res.cookie("auth_token", token, {
-  httpOnly: true,
-  sameSite: "none",
-  secure: false,
-  path: "/",
-});
+  res.clearCookie("temp_user_token", { path: "/" });
+  res.clearCookie("github_oauth_state", { path: "/" });
 
-  res.redirect(302, "http://localhost:5173/dashboard");
+  res.cookie("auth_token", authToken, {
+    httpOnly: true,
+    sameSite: isProd ? "none" : "lax",
+    secure: isProd,
+    path: "/",
+  });
+
+  res.redirect("http://localhost:5173/dashboard");
 };
-
 export const logoutController = async (req: Request, res: Response) => {
   res.clearCookie("auth_token", { path: "/" });
   res.json({ status: true });
