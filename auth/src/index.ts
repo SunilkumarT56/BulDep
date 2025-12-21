@@ -5,11 +5,17 @@ import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 dotenv.config();
 import authRoutes from "./routes/auth.routes.js";
-import { AppError } from "./errorHandler/error.handler.js";
+import {redisClient} from "./config/redis.js"
+
 
 const PORT = process.env.PORT;
 
 const app = express();
+
+async function redisConnect(){
+  redisClient.connect();
+
+}
 
 app.use(express.json());
 app.use(
@@ -30,3 +36,6 @@ app.get("/health", (req, res) => {
 app.listen(PORT, () => {
   console.log(`App is up and running on ${PORT}`);
 });
+
+
+await redisConnect();

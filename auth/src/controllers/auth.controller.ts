@@ -2,12 +2,16 @@ import type { Request, Response } from "express";
 import crypto from "crypto";
 import axios from "axios";
 import { prisma } from "../config/postgresql.js";
-import { generateJWT} from "../utils/jwt.js";
+import { generateJWT } from "../utils/jwt.js";
 import { ghDataCollector } from "../services/github.service.js";
 import { upsertGithubProfile } from "../services/github.service.js";
 import { cookieSender } from "../utils/cookies.js";
+import { redisClient } from "../config/redis.js";
+import { sendEmail } from "../services/email.service.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
-export const oauthGithubController = async (
+
+export const oauthGithubController = asyncHandler(async (
   req: Request,
   res: Response
 ): Promise<void> => {
@@ -27,8 +31,8 @@ export const oauthGithubController = async (
   });
 
   res.redirect(302, githubAuthURL);
-};
-export const redirectHandlerGithubController = async (
+});
+export const redirectHandlerGithubController = asyncHandler(async (
   req: Request,
   res: Response
 ): Promise<void> => {
@@ -36,12 +40,10 @@ export const redirectHandlerGithubController = async (
     const { code, state } = req.query;
     const { github_oauth_state } = req.cookies;
 
-   
     if (!state || state !== github_oauth_state) {
       res.status(401).json({ status: false, error: "Invalid OAuth state" });
       return;
     }
-
 
     const tokenRes = await axios.post(
       "https://github.com/login/oauth/access_token",
@@ -121,8 +123,33 @@ export const redirectHandlerGithubController = async (
     console.error("GitHub OAuth error:", err);
     res.status(500).json({ status: false, error: "OAuth login failed" });
   }
-};
-export const logoutController = async (req: Request, res: Response) => {
+});
+export const logoutController = asyncHandler(async (req: Request, res: Response) => {
   res.clearCookie("auth_token", { path: "/" });
   res.json({ status: true });
-};
+});
+export const emailRequestController = asyncHandler(async (req: Request, res: Response) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ error: "Email required" });
+  }
+
+  let user = await prisma.users.findUnique({
+    where: { email },
+  });
+
+  if (!user) {
+    user = await prisma.users.create({
+      data: { email },
+    });
+  }
+
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+  await redisClient.set(`email_otp:${email}`, otp, { EX: 300 });
+
+  await sendEmail(email, "email sent", `Your login code is ${otp}`);
+
+  res.json({ status: true, message: "OTP sent" });
+});
