@@ -3,25 +3,10 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import axios from "axios";
 import { prisma } from "../config/postgresql.js";
-import type { User } from "../types/auth.js";
-import { generateJWT, generateJWTForName } from "../utils/jwt.js";
-
-export const getName = async (req: Request, res: Response): Promise<void> => {
-  const { name } = req.body;
-  const user = await prisma.users.create({
-    data: {
-      name,
-    },
-  });
-  const token: string = generateJWTForName(user.id);
-  res.cookie("temp_user_token", token, {
-    httpOnly: true,
-    sameSite: "none",
-    secure: true,
-    path: "/",
-  });
-  res.json({ status: true });
-};
+import { generateJWT} from "../utils/jwt.js";
+import { ghDataCollector } from "../services/github.service.js";
+import { upsertGithubProfile } from "../services/github.service.js";
+import { cookieSender } from "../utils/cookies.js";
 
 export const oauthGithubController = async (
   req: Request,
@@ -31,8 +16,8 @@ export const oauthGithubController = async (
   const githubAuthURL =
     "https://github.com/login/oauth/authorize" +
     `?client_id=${process.env.GITHUB_CLIENT_ID}` +
-    `&redirect_uri=${process.env.GITHUB_CALLBACK_URL}` +
-    `&scope=read:user user:email` +
+    `&redirect_uri=${encodeURIComponent(process.env.GITHUB_CALLBACK_URL!)}` +
+    `&scope=read:user user:email repo read:org` +
     `&state=${state}`;
 
   res.cookie("github_oauth_state", state, {
@@ -44,97 +29,99 @@ export const oauthGithubController = async (
 
   res.redirect(302, githubAuthURL);
 };
-
 export const redirectHandlerGithubController = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  const { code, state } = req.query;
-  const { github_oauth_state, temp_user_token } = req.cookies;
+  try {
+    const { code, state } = req.query;
+    const { github_oauth_state } = req.cookies;
 
-  // 1. CSRF FIRST
-  if (!state || state !== github_oauth_state) {
-    res.status(401).json({ error: "Invalid OAuth state" });
-    return 
+   
+    if (!state || state !== github_oauth_state) {
+      res.status(401).json({ status: false, error: "Invalid OAuth state" });
+      return;
+    }
+
+
+    const tokenRes = await axios.post(
+      "https://github.com/login/oauth/access_token",
+      {
+        client_id: process.env.GITHUB_CLIENT_ID,
+        client_secret: process.env.GITHUB_CLIENT_SECRET,
+        code,
+      },
+      { headers: { Accept: "application/json" } }
+    );
+
+    const accessToken = tokenRes.data.access_token;
+    if (!accessToken) {
+      res.status(401).json({ status: false, error: "OAuth failed" });
+      return;
+    }
+
+    const { ghUser, ghEmails } = await ghDataCollector(accessToken);
+    const primaryEmail =
+      ghEmails.find((e) => e.primary && e.verified)?.email ?? null;
+
+    const provider = "github";
+    const providerUserId = ghUser.id.toString();
+
+    const existingOAuth = await prisma.oauth_accounts.findUnique({
+      where: {
+        provider_provider_user_id: {
+          provider,
+          provider_user_id: providerUserId,
+        },
+      },
+      include: {
+        user: true,
+      },
+    });
+
+    let user;
+
+    if (existingOAuth) {
+      user = existingOAuth.user;
+    } else {
+      if (primaryEmail) {
+        user = await prisma.users.findUnique({
+          where: { email: primaryEmail },
+        });
+      }
+
+      if (!user) {
+        user = await prisma.users.create({
+          data: {
+            email: primaryEmail,
+            avatar_url: ghUser.avatar_url,
+          },
+        });
+      }
+
+      await prisma.oauth_accounts.create({
+        data: {
+          user_id: user.id,
+          provider,
+          provider_user_id: providerUserId,
+          access_token: accessToken,
+          scope: "read:user user:email repo read:org",
+        },
+      });
+    }
+
+    await upsertGithubProfile(user.id, ghUser, ghEmails);
+
+    res.clearCookie("github_oauth_state", { path: "/" });
+
+    const authToken = generateJWT(user.id);
+    cookieSender(req, res, "zylo", authToken);
+
+    res.redirect("http://localhost:5173/dashboard");
+  } catch (err) {
+    console.error("GitHub OAuth error:", err);
+    res.status(500).json({ status: false, error: "OAuth login failed" });
   }
-
-  if (!temp_user_token) {
-    res.status(400).json({ error: "Missing temp token" });
-    return 
-  }
-
-  // 2. Verify temp token ONCE
-  const payload = jwt.verify(
-    temp_user_token,
-    process.env.JWT_SECRET!
-  ) as { userId: string };
-
-  const userId = payload.userId;
-
-  // 3. Fetch user
-  const user = await prisma.users.findUnique({
-    where: { id: userId },
-  });
-
-  if (!user || user.status !== "active") {
-    res.status(400).json({ error: "Invalid user" });
-    return ;
-  }
-
-  // 4. GitHub token exchange
-  const tokenRes = await axios.post(
-    "https://github.com/login/oauth/access_token",
-    {
-      client_id: process.env.GITHUB_CLIENT_ID,
-      client_secret: process.env.GITHUB_CLIENT_SECRET,
-      code,
-    },
-    { headers: { Accept: "application/json" } }
-  );
-
-  const accessToken = tokenRes.data.access_token;
-  if (!accessToken) {
-  res.status(401).json({ error: "OAuth failed" });
-  return;
-  }
-
-  // 5. Fetch GitHub profile
-  const ghUser = await axios.get("https://api.github.com/user", {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-
-  const ghEmails = await axios.get("https://api.github.com/user/emails", {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-
-  const primaryEmail = ghEmails.data.find((e: any) => e.primary)?.email;
-
-  // 6. Update user
-  await prisma.users.update({
-    where: { id: userId },
-    data: {
-      email: primaryEmail,
-      avatar_url: ghUser.data.avatar_url,
-      updated_at: new Date(),
-    },
-  });
-
-  // 7. Issue final auth token
-  const authToken = generateJWT(userId)
-
-  const isProd = process.env.NODE_ENV === "production";
-
-  res.clearCookie("temp_user_token", { path: "/" });
-  res.clearCookie("github_oauth_state", { path: "/" });
-
-  res.cookie("auth_token", authToken, {
-    httpOnly: true,
-    sameSite: isProd ? "none" : "lax",
-    secure: isProd,
-    path: "/",
-  });
-
-  res.redirect("http://localhost:5173/dashboard");
 };
 export const logoutController = async (req: Request, res: Response) => {
   res.clearCookie("auth_token", { path: "/" });
