@@ -5,9 +5,10 @@ import { Logo } from "@/components/Logo";
 interface HeaderProps {
   onLogout: () => void;
   userEmail?: string | null;
+  userId?: string | null;
 }
 
-export function Header({ onLogout, userEmail }: HeaderProps) {
+export function Header({ onLogout, userEmail, userId }: HeaderProps) {
   return (
     <header className="fixed top-0 z-50 w-full border-b border-white/10 bg-black/50 backdrop-blur-xl">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
@@ -16,6 +17,11 @@ export function Header({ onLogout, userEmail }: HeaderProps) {
           <span className="text-xl font-bold text-white tracking-tight">Zylo</span>
         </div>
         <div className="flex items-center gap-4">
+          {userId && (
+             <span className="text-xs text-zinc-500 font-mono hidden md:inline-block bg-zinc-900 px-2 py-1 rounded border border-zinc-800">
+               ID: {userId}
+             </span>
+          )}
           {userEmail && (
             <span className="text-sm text-zinc-400 hidden sm:inline-block">
               {userEmail}
