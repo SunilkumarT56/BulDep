@@ -6,10 +6,10 @@ import { Logo } from "@/components/Logo";
 import { Link, useNavigate } from "react-router-dom";
 
 interface AuthPageProps {
-  onLogin: () => void;
+  onLogin: (user?: any) => void;
 }
 
-export function AuthPage({ onLogin: _onLogin }: AuthPageProps) {
+export function AuthPage({ onLogin }: AuthPageProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [email, setEmail] = useState("");
@@ -21,10 +21,46 @@ export function AuthPage({ onLogin: _onLogin }: AuthPageProps) {
     setIsLoading(true);
 
     try {
-      // Simulate API call or actually send magic link here
-      // For now, just navigate to verification
+      const response = await fetch("https://untolerative-len-rumblingly.ngrok-free.dev/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ email }),
+      });
+
+      if (!response.ok) {
+        // If 404/method not allowed, maybe fallback to verify path? 
+        // But for now let's assume the endpoint exists as implied.
+        // Or throw generic error.
+        throw new Error("Login failed");
+      }
+
+      const data = await response.json();
+      console.log("Login response:", data);
+
+      if (data.authenticated && data.user) {
+         localStorage.setItem("isAuthenticated", "true");
+         if (data.token) {
+             localStorage.setItem("authToken", data.token);
+         }
+         
+         // Assuming 'onLogin' is available (I will fix signature next).
+         onLogin(data.user); 
+         window.location.href = "/dashboard";
+         return;
+      }
+
+      if (data.redirectTo) {
+        window.location.href = data.redirectTo;
+        return;
+      }
+
+      // Fallback
       navigate(`/verify?email=${encodeURIComponent(email)}`);
     } catch (err) {
+      console.error(err);
       setError("An error occurred. Please try again.");
     } finally {
       setIsLoading(false);

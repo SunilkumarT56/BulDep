@@ -1,284 +1,509 @@
+
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { Github, ArrowRight, Loader2, ExternalLink, UploadCloud, Server, CheckCircle } from "lucide-react";
+import { Search, Github, ChevronRight, ChevronLeft, Loader2, ExternalLink } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 
+interface Repository {
+  id: number;
+  name: string;
+  full_name: string;
+  private: boolean;
+  html_url: string;
+  description: string | null;
+  language: string | null;
+  updated_at: string;
+  owner?: {
+    login: string;
+    avatar_url: string;
+  };
+  loader?: boolean; // internal to track loading state per item
+}
+
+interface PreviewData {
+  name: string;
+  full_name: string;
+  private: boolean;
+  default_branch: string;
+  stars: number;
+  forks: number;
+  open_issues: number;
+  updated_at: string;
+  html_url: string;
+  language: string;
+  languages: Record<string, number>;
+  commits?: Commit[];
+}
+
+interface Commit {
+  message: string;
+  author: string;
+  time: string;
+}
+
 export function Hero() {
-  const [url, setUrl] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [deployedUrl, setDeployedUrl] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [repos, setRepos] = useState<Repository[]>([]);
+  // ... (rest of state items unchanged)
+  const [loading, setLoading] = useState(true);
+  const [importingRepoId, setImportingRepoId] = useState<number | null>(null);
+  const [previewData, setPreviewData] = useState<PreviewData | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasNextPage, setHasNextPage] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState("");
-  const [uploadId, setUploadId] = useState<string | null>(null);
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [userLogin, setUserLogin] = useState<string | null>(null);
+  const [userAvatar, setUserAvatar] = useState<string | null>(null);
+  const [commitPage, setCommitPage] = useState(1);
+  const [manualRepoUrl, setManualRepoUrl] = useState("");
+  const [manualImportLoading, setManualImportLoading] = useState(false);
+
+  // ... (useEffect fetches repos unchanged)
 
   useEffect(() => {
-    if (!uploadId) return;
-
-    const pollStatus = async () => {
+    const fetchRepos = async () => {
+      setLoading(true);
+      setError(null);
       try {
-        const response = await fetch(`https://untolerative-len-rumblingly.ngrok-free.dev/api/status?id=${uploadId}`);
+        let token = localStorage.getItem("authToken");
+
+        // Fallback to hardcoded token if no dynamic token found (Preserving user's testing token)
+        if (!token) {
+            token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJiZTgwZjM5Mi1hN2NlLTQwYjUtOTc3Zi0xNjM5YjU3MjZkYTMiLCJpYXQiOjE3NjY1MDA2MzIsImV4cCI6MTc2NzEwNTQzMn0.NniSk_TnqLk3uRoyp9WrNkf4h_GQJe0Z3zKvEQX48Lg";
+        }
+
+        const headers: HeadersInit = {
+             "Content-Type": "application/json",
+             "ngrok-skip-browser-warning": "true",
+        };
+        if (token) {
+            headers["Authorization"] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(`https://untolerative-len-rumblingly.ngrok-free.dev/user/new?page=${currentPage}&search=${searchQuery}`, {
+            headers
+        });
+        
+        if (!response.ok) {
+            throw new Error("Failed to fetch repositories");
+        }
+
         const data = await response.json();
-        // Backend returns { status: string | null }
-        // If status is null (not found yet), we might be pending or starting
-        setStatus(data.status || "Pending...");
-      } catch (e) {
-        // Silently fail
+        
+        // Expected format: { login, avatar_url, page, per_page, hasNextPage, repos: [] }
+        setRepos(data.repos || []);
+        setHasNextPage(data.hasNextPage);
+        setUserLogin(data.login);
+        setUserAvatar(data.avatar_url);
+        
+      } catch (err) {
+        console.error("Error fetching repos:", err);
+        setError("Failed to load repositories.");
+        // Should we clear repos on error? Maybe not if it's just a transient issue
+        setRepos([]); 
+      } finally {
+        setLoading(false);
       }
     };
 
-    pollStatus();
-    const interval = setInterval(pollStatus, 1000); // Poll every 1 second
-    return () => clearInterval(interval);
-  }, [uploadId]);
+    // Debounce search if needed, but for now direct call on effect dependency
+    const timeoutId = setTimeout(() => {
+        fetchRepos();
+    }, 300); // Simple debounce
 
-  const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
-    const { clientX, clientY } = event;
-    const { left, top } = event.currentTarget.getBoundingClientRect();
-    setMousePosition({
-      x: clientX - left,
-      y: clientY - top,
-    });
+    return () => clearTimeout(timeoutId);
+
+  }, [currentPage, searchQuery]);
+    
+  // ... (handlers unchanged)
+  const handleNext = () => {
+    if (hasNextPage) setCurrentPage(prev => prev + 1);
   };
 
-  const handleDeploy = async () => {
-    if (!url) return;
-    
-    setLoading(true);
-    setError(null);
-    setDeployedUrl(null);
-    setStatus("uploading"); // Initial optimistic status
-    
-    try {
-      const response = await fetch("https://untolerative-len-rumblingly.ngrok-free.dev/api/upload/deploy", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ repoUrl: url }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Deployment failed");
-      }
-
-      const data = await response.json();
-      const id = data.id; // Correctly use the ID from the response
-      console.log("Received ID from 7001:", id);
-
-      if (id) {
-        setUploadId(id);
-        // Construct the full URL.
-        const fullUrl = `http://${id}.sunilkumar.com:3001`;
-        setDeployedUrl(fullUrl);
-      } else {
-        setError("Invalid response from server");
-        setStatus(""); // Reset status on error
-      }
-    } catch (err) {
-      console.error(err);
-      setError("Failed to deploy. Please check the URL and try again.");
-      setStatus(""); // Reset status on error
-    } finally {
-      setLoading(false);
-    }
+  const handlePrev = () => {
+    if (currentPage > 1) setCurrentPage(prev => prev - 1);
   };
 
+  const handleImport = async (repo: Repository) => {
+      setImportingRepoId(repo.id);
+      try {
+        let token = localStorage.getItem("authToken");
+        if (!token) {
+             token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJiZTgwZjM5Mi1hN2NlLTQwYjUtOTc3Zi0xNjM5YjU3MjZkYTMiLCJpYXQiOjE3NjY1MDA2MzIsImV4cCI6MTc2NzEwNTQzMn0.NniSk_TnqLk3uRoyp9WrNkf4h_GQJe0Z3zKvEQX48Lg";
+        }
 
+        const owner = userLogin || repo.owner?.login;
+        if (!owner) {
+            console.error("No owner found for repo");
+            return;
+        }
+
+        const response = await fetch("https://untolerative-len-rumblingly.ngrok-free.dev/user/preview", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`,
+                "ngrok-skip-browser-warning": "true",
+            },
+            body: JSON.stringify({
+                owner: owner,
+                repoName: repo.name
+            })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            console.log("Preview response:", data);
+            setPreviewData(data);
+            setCommitPage(1); // Reset commit page on new import
+        } else {
+            console.error("Failed to generate preview");
+        }
+      } catch (error) {
+          console.error("Error importing repo:", error);
+      } finally {
+          setImportingRepoId(null);
+      }
+  };
+
+  const handleManualImport = async () => {
+      if (!manualRepoUrl.trim()) return;
+      
+      setManualImportLoading(true);
+      try {
+        let token = localStorage.getItem("authToken");
+        if (!token) {
+             token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJiZTgwZjM5Mi1hN2NlLTQwYjUtOTc3Zi0xNjM5YjU3MjZkYTMiLCJpYXQiOjE3NjY1MDA2MzIsImV4cCI6MTc2NzEwNTQzMn0.NniSk_TnqLk3uRoyp9WrNkf4h_GQJe0Z3zKvEQX48Lg";
+        }
+
+        const response = await fetch("https://untolerative-len-rumblingly.ngrok-free.dev/user/github-url", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`,
+                "ngrok-skip-browser-warning": "true",
+            },
+            body: JSON.stringify({
+                githubUrl: manualRepoUrl
+            })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            console.log("Manual Preview response:", data);
+            setPreviewData(data);
+            setCommitPage(1); 
+            setError(null);
+        } else {
+            console.error("Failed to generate preview from URL");
+            // Optionally set an error state here specifically for manual import
+        }
+      } catch (error) {
+          console.error("Error importing repo via URL:", error);
+      } finally {
+          setManualImportLoading(false);
+      }
+  };
 
   return (
-    <div 
-        className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-black text-white pt-16"
-        onMouseMove={handleMouseMove}
-    >
-      {/* Dynamic Background */}
-      <div className="absolute inset-0 z-0">
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 1 }}
-            className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"
-            style={{
-                maskImage: 'radial-gradient(ellipse 60% 50% at 50% 0%, #000 70%, transparent 100%)'
-            }}
-          />
-          
-          {/* Cursor Wave Effect */}
-          <motion.div
-            className="pointer-events-none absolute inset-0 z-0 transition-opacity duration-300"
-            style={{
-              background: `radial-gradient(600px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(255,255,255,0.06), transparent 40%)`,
-            }}
-          />
-
-          <motion.div 
-            animate={{ 
-                scale: [1, 1.1, 1],
-                opacity: [0.3, 0.5, 0.3], 
-            }}
-            transition={{ 
-                duration: 8,
-                repeat: Infinity,
-                ease: "easeInOut" 
-            }}
-            className="absolute left-0 right-0 top-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-indigo-500/20 opacity-20 blur-[100px]"
-          />
-          <motion.div
-             animate={{
-                x: ["-25%", "25%"],
-                y: ["-10%", "10%"],
-             }}
-             transition={{
-                duration: 20,
-                repeat: Infinity,
-                repeatType: "reverse",
-                ease: "linear",
-             }}
-             className="absolute inset-0 bg-[radial-gradient(circle_800px_at_50%_200px,#ffffff09,transparent)]"
-          />
-      </div>
+    <div className="min-h-screen bg-black text-white pt-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto flex flex-col lg:flex-row gap-8">
       
-      <div className="z-10 flex flex-col items-center gap-8 px-4 text-center w-full max-w-3xl">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <h1 className="bg-gradient-to-b from-white to-white/60 bg-clip-text text-5xl font-extrabold text-transparent sm:text-7xl tracking-tighter">
-            Ship your project <br /> in seconds.
-          </h1>
-          <p className="mx-auto mt-4 max-w-lg text-lg text-zinc-400">
-            The frontend cloud for every framework. <br/> Deploy the future with Buildep.
-          </p>
-        </motion.div>
-
-        <motion.div
-           initial={{ opacity: 0, scale: 0.95 }}
-           animate={{ opacity: 1, scale: 1 }}
-           transition={{ duration: 0.5, delay: 0.2 }}
-           className="flex w-full max-w-md flex-col items-center gap-4 sm:flex-row"
-        >
-            <div className="relative w-full">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">
-                    <Github className="h-5 w-5" />
-                </div>
-                <Input 
-                    type="text" 
-                    placeholder="github.com/username/repo" 
-                    className="pl-10 bg-black/50 border-white/10 text-white placeholder:text-zinc-600 h-12 rounded-lg focus-visible:ring-white/20"
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                />
-            </div>
+      {/* Left Column: Search & Repos */}
+      <div className="w-full lg:w-1/2 flex flex-col gap-6">
+        {/* Manual Import Input */}
+        <div className="flex gap-2">
+            <Input 
+                placeholder="Enter GitHub URL to deploy..." 
+                className="bg-black border-zinc-800 text-white placeholder:text-zinc-600 h-10 rounded-md focus-visible:ring-white/10 focus-visible:border-white/20 transition-all flex-1"
+                value={manualRepoUrl}
+                onChange={(e) => setManualRepoUrl(e.target.value)}
+            />
             <Button 
-                size="lg" 
-                className="w-full sm:w-auto h-12 rounded-lg bg-white text-black hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
-                onClick={handleDeploy}
-                disabled={loading || !url}
+                onClick={handleManualImport}
+                disabled={manualImportLoading || !manualRepoUrl.trim()}
+                className="bg-white text-black hover:bg-zinc-200 border border-white h-10 px-4 font-bold tracking-tight rounded-md transition-all shrink-0 disabled:opacity-50"
             >
-                {loading ? (
-                    <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Deploying...
-                    </>
-                ) : (
-                    <>
-                        Deploy <ArrowRight className="ml-2 h-4 w-4" />
-                    </>
-                )}
+                {manualImportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Import"}
             </Button>
-        </motion.div>
+        </div>
 
-        <motion.div
-           initial={{ opacity: 0 }}
-           animate={{ opacity: 1 }}
-           transition={{ duration: 1, delay: 0.5 }}
-           className="mt-6"
-        >
-             {status && (
-             <div className="flex items-center gap-3 px-5 py-2.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm shadow-lg hover:bg-white/10 transition-colors">
-                <div className={`relative h-2.5 w-2.5 flex items-center justify-center`}>
-                     <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping ${
-                        status === 'uploading' ? 'bg-purple-500' :
-                        status === 'deploying' ? 'bg-blue-500' :
-                        status === 'builded' ? 'bg-green-500' :
-                        'bg-zinc-500'
-                     }`}></span>
-                     <span className={`relative inline-flex h-2 w-2 rounded-full ${
-                        status === 'uploading' ? 'bg-purple-500' :
-                        status === 'deploying' ? 'bg-blue-500' :
-                        status === 'builded' ? 'bg-green-500' :
-                        'bg-zinc-500'
-                     }`}></span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-zinc-300 capitalize">
-                        {status === 'builded' ? 'Build Complete' : status}
-                    </span>
-                    {status === 'uploading' && <UploadCloud className="h-4 w-4 text-purple-400" />}
-                    {status === 'deploying' && <Server className="h-4 w-4 text-blue-400" />}
-                    {status === 'builded' && <CheckCircle className="h-4 w-4 text-green-400" />}
-                </div>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Your Repositories</h1>
+          <p className="text-zinc-400">Select a repository to import.</p>
+        </div>
+
+        {/* GitHub Account Info */}
+        <div className="flex items-center gap-3 p-3 -mt-2 rounded-lg border border-zinc-800 bg-zinc-900/30">
+             <div className="p-0.5 rounded-full bg-white/5 border border-white/5 text-zinc-400 overflow-hidden h-8 w-8 flex items-center justify-center">
+                {userAvatar ? (
+                    <img src={userAvatar} alt="Profile" className="h-full w-full object-cover" />
+                ) : (
+                    <Github className="h-4 w-4" />
+                )}
              </div>
-             )}
-        </motion.div>
+             <div className="flex-1 flex flex-col">
+                <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">Connected Account</span>
+                <span className="text-sm font-medium text-zinc-200">
+                    {userLogin ? `github.com/${userLogin}` : 'github.com/...'}
+                </span>
+             </div>
+             <div className="h-2 w-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+        </div>
 
-        {/* Result Box - Only changes is positioning logic might be needed if it overlaps, but standard flow puts it below */}
-        {deployedUrl && status === 'builded' && (
-            <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="w-full max-w-md mt-4"
-            >
-                <div className="flex items-center justify-between gap-2 p-3 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
-                     <span className="pl-2 text-sm text-zinc-400">Deployed:</span>
-                     <a 
-                        href={deployedUrl}
-                        target="_blank"
-                        rel="noopener noreferrer" 
-                        className="flex-1 text-sm font-medium text-white hover:text-blue-400 transition-colors truncate text-center"
-                     >
-                        {deployedUrl.replace(/^https?:\/\//, '')}
-                     </a>
-                     <div className="flex items-center gap-1">
-                        <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-zinc-400 hover:text-white rounded-lg hover:bg-white/10"
-                            onClick={() => navigator.clipboard.writeText(deployedUrl)}
-                        >
-                            <span className="sr-only">Copy</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                        </Button>
-                         <a 
-                            href={deployedUrl} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                        >
-                             <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-8 w-8 text-zinc-400 hover:text-white rounded-lg hover:bg-white/10"
-                            >
-                                <ExternalLink className="h-4 w-4" />
-                            </Button>
-                        </a>
-                     </div>
+
+
+        {/* Search Bar */}
+        <div className="relative">
+             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">
+                <Search className="h-4 w-4" />
+             </div>
+             <Input 
+                placeholder="Search..." 
+                className="pl-9 bg-black border-zinc-800 text-white placeholder:text-zinc-600 h-10 rounded-md focus-visible:ring-white/10 focus-visible:border-white/20 transition-all"
+                value={searchQuery}
+                onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1); // Reset to first page on search
+                }}
+             />
+        </div>
+
+        {/* Repo List */}
+        <div className="flex flex-col gap-3 min-h-[300px]">
+            {loading ? (
+                <div className="flex items-center justify-center h-40">
+                    <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
                 </div>
-            </motion.div>
-        )}
-
-        {error && (
-             <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-4 text-red-400 bg-red-500/10 px-4 py-2 rounded-lg border border-red-500/20 text-sm"
-             >
-                {error}
-             </motion.div>
-        )}
+            ) : error ? (
+                 <div className="text-center py-10 text-red-400 text-sm">
+                    {error}
+                </div>
+            ) : (
+                <>
+                    {repos.map((repo) => (
+                        <div 
+                            key={repo.id} 
+                            onClick={() => handleImport(repo)}
+                            className={`flex items-center justify-between p-4 rounded-lg border border-zinc-800 bg-zinc-900/30 hover:bg-zinc-900/50 transition-colors group cursor-pointer ${importingRepoId === repo.id ? 'opacity-75' : ''}`}
+                        >
+                            <div className="flex items-start gap-3">
+                                <div className="mt-1 p-1.5 rounded-md bg-white/5 border border-white/5 text-zinc-400">
+                                   <Github className="h-5 w-5" />
+                                </div>
+                                <div className="flex flex-col justify-center">
+                                    <h3 className="font-medium text-white group-hover:text-blue-400 transition-colors text-sm">{repo.name}</h3>
+                                    {/* Removed user login from here as per "remove the profile for repos" implied clean look */}
+                                </div>
+                            </div>
+                            <Button 
+                                size="sm" 
+                                className="bg-white text-black hover:bg-zinc-200 h-8 font-medium pointer-events-none"
+                            >
+                                {importingRepoId === repo.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    "Import"
+                                )}
+                            </Button>
+                        </div>
+                    ))}
+                    
+                    {repos.length === 0 && (
+                        <div className="text-center py-10 text-zinc-500 text-sm">
+                            No repositories found.
+                        </div>
+                    )}
+                </>
+            )}
+        </div>
+        
+        <div className="flex justify-start gap-4 items-center">
+             {currentPage > 1 && (
+                 <button 
+                    onClick={handlePrev}
+                    disabled={loading}
+                    className="flex items-center gap-1 text-zinc-500 hover:text-white text-sm font-medium transition-colors disabled:opacity-50"
+                 >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                 </button>
+             )}
+             {hasNextPage && (
+                <button 
+                    onClick={handleNext}
+                    disabled={loading}
+                    className="flex items-center gap-1 text-blue-500 hover:text-blue-400 text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                </button>
+             )}
+        </div>
       </div>
+
+      {/* Right Column: Preview / Details Area */}
+      <div className={`w-full lg:w-1/2 rounded-xl border border-zinc-800 bg-black overflow-hidden flex flex-col min-h-[500px]`}>
+        
+        {/* Top Half: Repository Preview */}
+        <div className="h-1/2 border-b border-zinc-800 relative flex flex-col w-full">
+            {previewData ? (
+                <div className="relative z-10 p-6 flex flex-col gap-4 h-full overflow-y-auto">
+                    
+                    {/* Header */}
+                    <div className="flex flex-col gap-2 border-b border-zinc-900 pb-4">
+                        <div>
+                            <div className="flex items-center gap-3 mb-1">
+                                <h2 className="text-xl font-bold text-white tracking-tight break-all truncate">
+                                    {previewData.name}
+                                </h2>
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase font-bold tracking-wider border bg-zinc-950 border-zinc-800 text-zinc-400 shrink-0`}>
+                                    {previewData.private ? 'Private' : 'Public'}
+                                </span>
+                            </div>
+                            <a 
+                                href={previewData.html_url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-xs text-zinc-500 hover:text-white flex items-center gap-1.5 transition-colors"
+                            >
+                                {previewData.full_name}
+                                <ExternalLink className="h-3 w-3" />
+                            </a>
+                        </div>
+                    </div>
+
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-3 gap-3">
+                        <div className="p-2 border border-zinc-800 bg-black/50 flex flex-col items-start gap-1">
+                            <span className="text-lg font-bold text-white block">{previewData.stars}</span>
+                            <span className="text-[10px] uppercase tracking-wider text-zinc-600 font-medium">Stars</span>
+                        </div>
+                        <div className="p-2 border border-zinc-800 bg-black/50 flex flex-col items-start gap-1">
+                             <span className="text-lg font-bold text-white block">{previewData.forks}</span>
+                             <span className="text-[10px] uppercase tracking-wider text-zinc-600 font-medium">Forks</span>
+                        </div>
+                        <div className="p-2 border border-zinc-800 bg-black/50 flex flex-col items-start gap-1">
+                            <span className="text-lg font-bold text-white block">{previewData.open_issues}</span>
+                            <span className="text-[10px] uppercase tracking-wider text-zinc-600 font-medium">Issues</span>
+                        </div>
+                    </div>
+
+                    {/* Info List */}
+                    <div className="flex flex-col gap-1">
+                        <div className="flex items-center justify-between text-xs py-1.5 border-b border-zinc-900/50">
+                            <span className="text-zinc-500">Language</span>
+                            <span className="text-white">{previewData.language}</span>
+                        </div>
+                         <div className="flex items-center justify-between text-xs py-1.5 border-b border-zinc-900/50">
+                            <span className="text-zinc-500">Updated</span>
+                            <span className="text-white">
+                                {new Date(previewData.updated_at).toLocaleDateString(undefined, {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric'
+                                })}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Language Bar */}
+                    {previewData.languages && Object.keys(previewData.languages).length > 0 && (
+                        <div className="mt-auto mb-2 space-y-2">
+                             <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-zinc-900">
+                                {(() => {
+                                    const total = Object.values(previewData.languages).reduce((a, b) => a + b, 0);
+                                    const colors = ['bg-white', 'bg-zinc-300', 'bg-zinc-500', 'bg-zinc-700'];
+                                    return Object.entries(previewData.languages).map(([lang, count], i) => (
+                                        <div 
+                                            key={lang}
+                                            className={`h-full ${colors[i % colors.length]}`}
+                                            style={{ width: `${(count / total) * 100}%` }}
+                                            title={`${lang}: ${((count / total) * 100).toFixed(1)}%`}
+                                        />
+                                    ));
+                                })()}
+                             </div>
+                             <div className="flex gap-3 text-[10px] text-zinc-500">
+                                {Object.keys(previewData.languages).slice(0, 3).map((lang, i) => (
+                                    <div key={lang} className="flex items-center gap-1">
+                                        <div className={`h-1.5 w-1.5 rounded-full ${['bg-white', 'bg-zinc-300', 'bg-zinc-500', 'bg-zinc-700'][i % 4]}`} />
+                                        <span>{lang}</span>
+                                    </div>
+                                ))}
+                             </div>
+                        </div>
+                    )}
+
+                         <Button className="w-full bg-white text-black hover:bg-zinc-200 border border-white h-9 text-sm font-bold tracking-tight rounded-md transition-all">
+                            DEPLOY
+                         </Button>
+
+                 </div>
+            ) : (
+                <div className="flex flex-col items-center justify-center h-full text-zinc-600 gap-2">
+                    <div className="p-3 rounded-full bg-zinc-900/50 border border-zinc-800">
+                        <Github className="h-6 w-6 opacity-50" />
+                    </div>
+                    <span className="text-xs font-medium uppercase tracking-wider">Select Repository</span>
+                </div>
+            )}
+        </div>
+
+        {/* Bottom Half: Commit History */}
+        <div className="h-1/2 relative bg-zinc-950/30 w-full overflow-hidden flex flex-col">
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none"></div>
+            
+            {previewData?.commits && previewData.commits.length > 0 ? (
+                <div className="relative z-10 flex flex-col h-full">
+                    <div className="flex items-center justify-between px-6 py-3 border-b border-zinc-800 bg-black/20 backdrop-blur-sm">
+                        <h3 className="text-sm font-bold text-zinc-200 tracking-wide uppercase">Recent Commits</h3>
+                        <div className="flex gap-2">
+                             <button 
+                                onClick={() => setCommitPage(prev => Math.max(1, prev - 1))}
+                                disabled={commitPage === 1}
+                                className="p-1 hover:bg-white/10 rounded disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                             >
+                                <ChevronLeft className="h-4 w-4 text-zinc-400" />
+                             </button>
+                             <button 
+                                onClick={() => setCommitPage(prev => prev + 1)}
+                                disabled={!((previewData.commits?.length || 0) > commitPage * 3)}
+                                className="p-1 hover:bg-white/10 rounded disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                             >
+                                <ChevronRight className="h-4 w-4 text-zinc-400" />
+                             </button>
+                        </div>
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                        {previewData.commits.slice((commitPage - 1) * 3, commitPage * 3).map((commit, i) => (
+                            <div key={i} className="group flex flex-col gap-1 p-3 rounded-lg border border-zinc-900 bg-black/40 hover:bg-zinc-900/40 hover:border-zinc-800/50 transition-all">
+                                <div className="flex justify-between items-start gap-3">
+                                    <p className="text-sm text-zinc-300 font-medium leading-snug line-clamp-2 group-hover:text-white transition-colors">
+                                        {commit.message}
+                                    </p>
+                                    <span className="text-[10px] text-zinc-600 shrink-0 font-mono mt-0.5">
+                                        {new Date(commit.time).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <div className="h-4 w-4 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-[8px] font-bold text-indigo-400">
+                                        {commit.author[0]?.toUpperCase()}
+                                    </div>
+                                    <span className="text-xs text-zinc-500">{commit.author}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ) : (
+                <div className="flex items-center justify-center h-full">
+                    {/* Empty State */}
+                 </div>
+            )}
+        </div>
+
+      </div>
+    
     </div>
   );
 }

@@ -14,6 +14,8 @@ function App() {
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
+  const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -35,7 +37,7 @@ function App() {
       // Fallback to hardcoded token if no dynamic token found (Preserving user's testing token)
       if (!token) {
           console.log("Using fallback hardcoded token");
-          token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIwOTI5NTg1Zi02MmQ0LTQ5ODgtODdmZC1jYmUzOTgxODJmNjciLCJpYXQiOjE3NjY0MDEyNzIsImV4cCI6MTc2NzAwNjA3Mn0.TkZRiEnqkhJFdDtCZcQh6_wmYhPLd4UPPoMk3nvLv3Y";
+          token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJiZTgwZjM5Mi1hN2NlLTQwYjUtOTc3Zi0xNjM5YjU3MjZkYTMiLCJpYXQiOjE3NjY1MDA2MzIsImV4cCI6MTc2NzEwNTQzMn0.NniSk_TnqLk3uRoyp9WrNkf4h_GQJe0Z3zKvEQX48Lg";
       }
 
       if (token) {
@@ -48,23 +50,47 @@ function App() {
                 },
              });
              
-             console.log("Response status:", response.status);
              if (response.ok) {
                  const data = await response.json();
                  console.log("Auth Data:", data);
-                 // Check for authenticated status OR user object presence
-                 if (data.authenticated) {
-                     console.log("Setting authenticated=true");
-                     localStorage.setItem("isAuthenticated", "true");
-                     setIsAuthenticated(true);
-                     if (data.user) {
-                        setUserId(data.user.id);
-                        setUserEmail(data.user.email);
+                 
+                     // Robustly attempt to find user data in common patterns
+                     let userData = null;
+                     if (data.user && data.user.email) {
+                         userData = data.user;
+                     } else if (data.data && data.data.email) {
+                         userData = data.data;
+                     } else if (data.email) {
+                         userData = data;
+                     } else if (data.user) {
+                         // Fallback for user object without email at top level (maybe deep nested?)
+                         userData = data.user;
                      }
-                 } else {
-                    console.log("Data not authenticated, logging out");
-                    handleLogout();
-                 }
+
+                     if (data.authenticated === true || userData) {
+                        setIsAuthenticated(true);
+                        localStorage.setItem("isAuthenticated", "true");
+                        
+                        if (userData) {
+                            setUserId(userData.id);
+                            setUserEmail(userData.email);
+                            // Handle both camelCase and snake_case for avatar
+                            setUserAvatarUrl(userData.avatar_url || userData.avatarUrl || userData.avatar);
+                            
+                            // Handle User Name
+                            setUserName(userData.github_name || userData.name || userData.username || null);
+
+                            console.log("User data set:", userData.email);
+                        }
+                     } else {
+                        console.log("Authenticated but no user data found in expected formats:", data);
+                        // Even if no specific user data, if response was OK and we had a token, strictly speaking we might be auth'd?
+                        // But user specifically said "once u get isauthenticated as true"
+                        if (data.authenticated === true) {
+                             setIsAuthenticated(true);
+                             localStorage.setItem("isAuthenticated", "true");
+                        }
+                     }
              } else {
                  console.log("Response not OK, logging out");
                  handleLogout();
@@ -85,9 +111,15 @@ function App() {
     checkAuth();
   }, []);
 
-  const handleLogin = () => {
+  const handleLogin = (userData?: any) => {
     localStorage.setItem("isAuthenticated", "true");
     setIsAuthenticated(true);
+    if (userData) {
+      setUserId(userData.id);
+      setUserEmail(userData.email);
+      setUserAvatarUrl(userData.avatar_url || userData.avatarUrl || userData.avatar);
+      setUserName(userData.github_name || userData.name || userData.username || null);
+    }
   };
 
   const handleLogout = async () => {
@@ -122,7 +154,9 @@ function App() {
   }
 
   return (
-    <Routes>
+    <div className="min-h-screen bg-black text-white relative">
+      <div className="fixed inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none"></div>
+      <Routes>
       <Route 
         path="/login" 
         element={
@@ -137,7 +171,7 @@ function App() {
         path="/signup" 
         element={
           !isAuthenticated ? (
-            <SignupPage />
+            <SignupPage onLogin={handleLogin} />
           ) : (
             <Navigate to="/dashboard" replace />
           )
@@ -149,7 +183,7 @@ function App() {
           !isAuthenticated ? (
             <SignupStepTwo />
           ) : (
-             <Navigate to="/dashboard" replace />
+            <Navigate to="/dashboard" replace />
           )
         } 
       />
@@ -161,8 +195,8 @@ function App() {
         path="/dashboard" 
         element={
           isAuthenticated ? (
-            <div className="min-h-screen bg-black text-white selection:bg-white/20 selection:text-white font-sans antialiased">
-              <Header onLogout={handleLogout} userEmail={userEmail} userId={userId} />
+            <div className="min-h-screen text-white selection:bg-white/20 selection:text-white font-sans antialiased bg-transparent">
+              <Header onLogout={handleLogout} userEmail={userEmail} userId={userId} userAvatarUrl={userAvatarUrl} userName={userName} />
               <main>
                 <Dashboard />
               </main>
@@ -186,8 +220,8 @@ function App() {
         path="/new" 
         element={
           isAuthenticated ? (
-            <div className="min-h-screen bg-black text-white selection:bg-white/20 selection:text-white font-sans antialiased">
-              <Header onLogout={handleLogout} userEmail={userEmail} userId={userId} />
+            <div className="min-h-screen text-white selection:bg-white/20 selection:text-white font-sans antialiased bg-transparent">
+              <Header onLogout={handleLogout} userEmail={userEmail} userId={userId} userAvatarUrl={userAvatarUrl} userName={userName} />
               <main>
                 <Hero />
               </main>
@@ -198,6 +232,7 @@ function App() {
         } 
       />
     </Routes>
+    </div>
   );
 }
 

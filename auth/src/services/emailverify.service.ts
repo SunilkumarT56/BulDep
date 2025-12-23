@@ -1,5 +1,5 @@
 import { redisClient } from "../config/redis.js";
-import { prisma } from "../config/postgresql.js";
+import { pool } from "../config/postgresql.js";
 import type { Request, Response } from "express";
 import { generateJWT } from "../utils/jwt.js";
 import { cookieSender } from "../utils/cookies.js";
@@ -15,9 +15,12 @@ export const emailVerifyController = async (req: Request, res: Response) => {
 
   await redisClient.del(`email_otp:${email}`);
 
-  const user = await prisma.users.findUnique({
-    where: { email },
-  });
+  const result = await pool.query(
+    "SELECT * FROM users WHERE email = $1 LIMIT 1",
+    [email]
+  );
+
+  const user = result.rows[0] || null;
 
   if (!user) {
     return res.status(404).json({ error: "User not found" });

@@ -28,7 +28,7 @@ app.use(
   createProxyMiddleware({
     target: "http://localhost:7003",
     changeOrigin: true,
-    onProxyReq(proxyReq, req) {
+    onProxyReq(proxyReq : any, req : any) {
       if (req.headers.authorization) {
         proxyReq.setHeader("authorization", req.headers.authorization);
       }

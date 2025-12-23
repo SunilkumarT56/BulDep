@@ -1,6 +1,6 @@
 import type { GhData } from "../types/auth.js";
 import axios from "axios";
-import {prisma} from "../config/postgresql.js";
+import { pool } from "../config/postgresql.js";
 
 
 const ghClient = axios.create({
@@ -26,64 +26,94 @@ export const ghDataCollector = async (
     ghClient.get("/user/emails", { headers: authHeader }),
   ]);
 
-  const ghUser = ghUserRes.data;
-  const ghEmails = ghEmailsRes.data;
-
   return {
-    ghUser,
-    ghEmails,
+    ghUser: ghUserRes.data,
+    ghEmails: ghEmailsRes.data,
   };
 };
-export const upsertGithubProfile=  async function (
+
+export const upsertGithubProfile = async (
+  client: any,
   userId: string,
-  ghUser : GhData["ghUser"],
-  ghEmails : GhData["ghEmails"]
-) {
-  await  prisma.github_profiles.upsert({
-    where: {
-      github_id: ghUser.id,
-    },
-    update: {
-      avatar_url: ghUser.avatar_url,
-      name: ghUser.name,
-      company: ghUser.company,
-      blog: ghUser.blog,
-      location: ghUser.location,
-      bio: ghUser.bio,
-      twitter_username: ghUser.twitter_username,
-      public_repos: ghUser.public_repos,
-      public_gists: ghUser.public_gists,
-      followers: ghUser.followers,
-      following: ghUser.following,
-      emails: ghEmails,
-      updated_at_github: new Date(ghUser.updated_at),
-    },
-    create: {
-      user_id: userId,
-      github_id: ghUser.id,
-      login: ghUser.login,
-      avatar_url: ghUser.avatar_url,
-      gravatar_id: ghUser.gravatar_id,
-      html_url: ghUser.html_url,
-      repos_url: ghUser.repos_url,
-      organizations_url: ghUser.organizations_url,
-      events_url: ghUser.events_url,
-      received_events_url: ghUser.received_events_url,
-      name: ghUser.name,
-      company: ghUser.company,
-      blog: ghUser.blog,
-      location: ghUser.location,
-      bio: ghUser.bio,
-      twitter_username: ghUser.twitter_username,
-      hireable: ghUser.hireable,
-      site_admin: ghUser.site_admin,
-      public_repos: ghUser.public_repos,
-      public_gists: ghUser.public_gists,
-      followers: ghUser.followers,
-      following: ghUser.following,
-      created_at_github: new Date(ghUser.created_at),
-      updated_at_github: new Date(ghUser.updated_at),
-      emails: ghEmails,
-    },
-  });
-}
+  ghUser: GhData["ghUser"],
+  ghEmails: GhData["ghEmails"]
+) => {
+  await client.query(
+    `
+    INSERT INTO github_profiles (
+      user_id,
+      github_id,
+      login,
+      avatar_url,
+      gravatar_id,
+      html_url,
+      repos_url,
+      organizations_url,
+      events_url,
+      received_events_url,
+      name,
+      company,
+      blog,
+      location,
+      bio,
+      twitter_username,
+      hireable,
+      site_admin,
+      public_repos,
+      public_gists,
+      followers,
+      following,
+      created_at_github,
+      updated_at_github,
+      emails
+    )
+    VALUES (
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+      $11, $12, $13, $14, $15, $16, $17, $18,
+      $19, $20, $21, $22, $23, $24, $25
+    )
+    ON CONFLICT (github_id)
+    DO UPDATE SET
+      avatar_url        = EXCLUDED.avatar_url,
+      name              = EXCLUDED.name,
+      company           = EXCLUDED.company,
+      blog              = EXCLUDED.blog,
+      location          = EXCLUDED.location,
+      bio               = EXCLUDED.bio,
+      twitter_username  = EXCLUDED.twitter_username,
+      public_repos      = EXCLUDED.public_repos,
+      public_gists      = EXCLUDED.public_gists,
+      followers         = EXCLUDED.followers,
+      following         = EXCLUDED.following,
+      emails            = EXCLUDED.emails,
+      updated_at_github = EXCLUDED.updated_at_github
+    `,
+    [
+      userId,
+      ghUser.id,
+      ghUser.login,
+      ghUser.avatar_url,
+      ghUser.gravatar_id,
+      ghUser.html_url,
+      ghUser.repos_url,
+      ghUser.organizations_url,
+      ghUser.events_url,
+      ghUser.received_events_url,
+      ghUser.name,
+      ghUser.company,
+      ghUser.blog,
+      ghUser.location,
+      ghUser.bio,
+      ghUser.twitter_username,
+      ghUser.hireable,
+      ghUser.site_admin,
+      ghUser.public_repos,
+      ghUser.public_gists,
+      ghUser.followers,
+      ghUser.following,
+      new Date(ghUser.created_at),
+      new Date(ghUser.updated_at),
+      JSON.stringify(ghEmails),
+    ]
+  );
+};

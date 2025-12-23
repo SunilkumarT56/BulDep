@@ -1,4 +1,5 @@
-import { LogOut, ChevronDown, Check } from "lucide-react";
+import { LogOut, ChevronDown, Check, LayoutDashboard } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "./ui/Button";
 import { Logo } from "@/components/Logo";
 import { useState, useRef, useEffect } from "react";
@@ -8,11 +9,14 @@ interface HeaderProps {
   onLogout: () => void;
   userEmail?: string | null;
   userId?: string | null;
+  userAvatarUrl?: string | null;
+  userName?: string | null;
 }
 
-export function Header({ onLogout, userEmail }: HeaderProps) {
+export function Header({ onLogout, userEmail, userAvatarUrl, userName }: HeaderProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -27,7 +31,7 @@ export function Header({ onLogout, userEmail }: HeaderProps) {
     };
   }, []);
 
-  const username = userEmail ? userEmail.split('@')[0] : 'User';
+  const displayUsername = userName || (userEmail ? userEmail.split('@')[0] : 'User');
 
   return (
     <header className="fixed top-0 z-50 w-full border-b border-white/10 bg-black/50 backdrop-blur-xl">
@@ -48,16 +52,22 @@ export function Header({ onLogout, userEmail }: HeaderProps) {
               onClick={() => setIsOpen(!isOpen)}
               className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-white/5 transition-colors group outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             >
-              {/* Avatar Gradient */}
-              <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 border border-white/10 shadow-inner" />
+              {/* Avatar Gradient or Image */}
+              {userAvatarUrl ? (
+                <img 
+                  src={userAvatarUrl} 
+                  alt={displayUsername} 
+                  className="w-6 h-6 rounded-full border border-white/10 object-cover"
+                />
+              ) : (
+                <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 border border-white/10 shadow-inner" />
+              )}
               
               <span className="text-sm font-medium text-zinc-200 group-hover:text-white transition-colors max-w-[150px] truncate hidden sm:inline-block">
-                {username}
+                {displayUsername}
               </span>
               
-              <span className="px-1.5 py-0.5 rounded text-[10px] bg-zinc-800 text-zinc-400 border border-zinc-700 font-medium hidden md:inline-block">
-                Hobby
-              </span>
+
 
               <ChevronDown className={`w-4 h-4 text-zinc-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
@@ -73,17 +83,25 @@ export function Header({ onLogout, userEmail }: HeaderProps) {
                   className="absolute top-full left-0 mt-2 w-64 bg-[#0A0A0A] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 p-1"
                 >
                   <div className="p-2 border-b border-white/5 space-y-1">
-                    <p className="text-sm font-medium text-white truncate">{username}</p>
+                    <p className="text-sm font-medium text-white truncate">{displayUsername}</p>
                     <p className="text-xs text-zinc-500 truncate">{userEmail || 'No email connected'}</p>
                   </div>
 
                   <div className="py-1">
                     <div className="flex items-center justify-between px-2 py-2 text-sm text-zinc-300 bg-white/5 rounded-md mx-1 cursor-default">
                         <div className="flex items-center gap-2">
-                             <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-[10px] text-white font-bold">
-                                {username.charAt(0).toUpperCase()}
-                            </div>
-                            <span className="truncate max-w-[140px]">{username}</span>
+                             {userAvatarUrl ? (
+                                <img 
+                                  src={userAvatarUrl} 
+                                  alt={displayUsername} 
+                                  className="w-5 h-5 rounded-full border border-white/10 object-cover"
+                                />
+                             ) : (
+                                <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-[10px] text-white font-bold">
+                                    {displayUsername.charAt(0).toUpperCase()}
+                                </div>
+                             )}
+                            <span className="truncate max-w-[140px]">{displayUsername}</span>
                         </div>
                         <Check className="w-4 h-4 text-white" />
                     </div>
@@ -105,6 +123,14 @@ export function Header({ onLogout, userEmail }: HeaderProps) {
 
         {/* Right Side: Log Out */}
         <div className="flex items-center gap-4">
+          <button 
+            onClick={() => navigate('/dashboard')}
+            className="flex items-center gap-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors"
+          >
+            <LayoutDashboard className="w-4 h-4" />
+            <span className="hidden sm:inline-block">Dashboard</span>
+          </button>
+          <div className="h-4 w-[1px] bg-white/10" />
           <Button 
             variant="outline" 
             size="sm" 

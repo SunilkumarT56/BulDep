@@ -5,7 +5,11 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Logo } from "@/components/Logo";
 
-export function SignupPage() {
+interface SignupPageProps {
+  onLogin?: (user?: any) => void;
+}
+
+export function SignupPage({ onLogin }: SignupPageProps) {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -36,6 +40,19 @@ export function SignupPage() {
       }
 
       const data = await response.json();
+
+      if (data.authenticated && data.user) {
+         localStorage.setItem("isAuthenticated", "true");
+         if (data.token) {
+             localStorage.setItem("authToken", data.token);
+         }
+
+         if (onLogin) {
+             onLogin(data.user);
+         }
+         window.location.href = "/dashboard";
+         return;
+      }
 
       if (data.redirectTo) {
         window.location.href = data.redirectTo;
