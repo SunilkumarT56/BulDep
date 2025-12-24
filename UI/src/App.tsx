@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Hero } from "@/components/Hero";
 import { Dashboard } from "@/components/Dashboard";
@@ -18,6 +18,8 @@ function App() {
   const [userId, setUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
+  
+  const location = useLocation();
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -146,6 +148,10 @@ function App() {
       setUserEmail(null);
     }
   };
+  
+  // Define paths where footer should not be visible
+  const hideFooterPaths = ["/login", "/signup", "/signup/connect", "/verify"];
+  const shouldShowFooter = !hideFooterPaths.includes(location.pathname);
 
   if (isAuthChecking) {
       return (
@@ -244,7 +250,7 @@ function App() {
         } 
       />
     </Routes>
-    <Footer />
+    {shouldShowFooter && <Footer />}
     </div>
   );
 }
