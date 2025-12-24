@@ -1,8 +1,9 @@
-
 import { useState, useEffect } from "react";
-import { Search, Github, ChevronRight, ChevronLeft, Loader2, ExternalLink } from "lucide-react";
+import { Search, Github, ChevronRight, ChevronLeft, Loader2, ExternalLink, GitFork } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { ImportConfiguration, type ProjectConfig } from "./ImportConfiguration";
+import { useNavigate } from "react-router-dom";
 
 interface Repository {
   id: number;
@@ -33,6 +34,11 @@ interface PreviewData {
   language: string;
   languages: Record<string, number>;
   commits?: Commit[];
+  directories?: { name: string; path: string }[];
+  owner?: {
+      login: string;
+      avatar_url: string;
+  };
 }
 
 interface Commit {
@@ -44,7 +50,6 @@ interface Commit {
 export function Hero() {
   const [searchQuery, setSearchQuery] = useState("");
   const [repos, setRepos] = useState<Repository[]>([]);
-  // ... (rest of state items unchanged)
   const [loading, setLoading] = useState(true);
   const [importingRepoId, setImportingRepoId] = useState<number | null>(null);
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
@@ -56,8 +61,12 @@ export function Hero() {
   const [commitPage, setCommitPage] = useState(1);
   const [manualRepoUrl, setManualRepoUrl] = useState("");
   const [manualImportLoading, setManualImportLoading] = useState(false);
-
-  // ... (useEffect fetches repos unchanged)
+  
+  // Configuration State
+  const [showConfig, setShowConfig] = useState(false);
+  const [deploying, setDeploying] = useState(false);
+  
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchRepos = async () => {
@@ -98,23 +107,20 @@ export function Hero() {
       } catch (err) {
         console.error("Error fetching repos:", err);
         setError("Failed to load repositories.");
-        // Should we clear repos on error? Maybe not if it's just a transient issue
         setRepos([]); 
       } finally {
         setLoading(false);
       }
     };
 
-    // Debounce search if needed, but for now direct call on effect dependency
     const timeoutId = setTimeout(() => {
         fetchRepos();
-    }, 300); // Simple debounce
+    }, 300);
 
     return () => clearTimeout(timeoutId);
 
   }, [currentPage, searchQuery]);
     
-  // ... (handlers unchanged)
   const handleNext = () => {
     if (hasNextPage) setCurrentPage(prev => prev + 1);
   };
@@ -123,7 +129,7 @@ export function Hero() {
     if (currentPage > 1) setCurrentPage(prev => prev - 1);
   };
 
-  const handleImport = async (repo: Repository) => {
+  const handleRepoClick = async (repo: Repository, isImportAction: boolean = false) => {
       setImportingRepoId(repo.id);
       try {
         let token = localStorage.getItem("authToken");
@@ -137,7 +143,12 @@ export function Hero() {
             return;
         }
 
-        const response = await fetch("https://untolerative-len-rumblingly.ngrok-free.dev/user/preview", {
+        // Endpoint varies based on action
+        const endpoint = isImportAction 
+            ? "https://untolerative-len-rumblingly.ngrok-free.dev/user/new/import"
+            : "https://untolerative-len-rumblingly.ngrok-free.dev/user/preview";
+
+        const response = await fetch(endpoint, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -152,14 +163,66 @@ export function Hero() {
 
         if (response.ok) {
             const data = await response.json();
-            console.log("Preview response:", data);
-            setPreviewData(data);
-            setCommitPage(1); // Reset commit page on new import
+            
+            let robustData: PreviewData;
+
+            // Updated check to handle specific backend response structure for directories
+            if (isImportAction && data.directories && Array.isArray(data.directories)) {
+                 robustData = {
+                    name: repo.name,
+                    full_name: repo.full_name,
+                    private: repo.private,
+                    default_branch: "main",
+                    stars: 0,
+                    forks: 0,
+                    open_issues: 0,
+                    updated_at: repo.updated_at,
+                    html_url: repo.html_url,
+                    language: repo.language || "Unknown",
+                    languages: {},
+                    commits: [],
+                    directories: data.directories, // Using data.directories from backend
+                    owner: {
+                        login: owner,
+                        avatar_url: userAvatar || ""
+                    }
+                 };
+            } else {
+                 robustData = {
+                    name: data.name || repo.name,
+                    full_name: data.full_name || repo.full_name,
+                    private: data.private ?? repo.private,
+                    default_branch: data.default_branch || "main",
+                    stars: data.stars || 0,
+                    forks: data.forks || 0,
+                    open_issues: data.open_issues || 0,
+                    updated_at: data.updated_at || repo.updated_at,
+                    html_url: data.html_url || repo.html_url,
+                    language: data.language || repo.language || "Unknown",
+                    languages: data.languages || {},
+                    commits: data.commits || [],
+                    directories: [],
+                    owner: {
+                        login: data.owner?.login || owner,
+                        avatar_url: data.owner?.avatar_url || userAvatar || ""
+                    }
+                };
+            }
+            
+            setPreviewData(robustData);
+            setCommitPage(1);
+            
+            // Only switch to config if explicitly requested (Action button)
+            if (isImportAction) {
+                setShowConfig(true);
+            } else {
+                setShowConfig(false); // Ensure we stay on preview if just clicking the row
+            }
         } else {
-            console.error("Failed to generate preview");
+            console.error("Failed to fetch data from " + endpoint);
         }
       } catch (error) {
-          console.error("Error importing repo:", error);
+          console.error("Error handling repo click:", error);
       } finally {
           setImportingRepoId(null);
       }
@@ -189,13 +252,16 @@ export function Hero() {
 
         if (response.ok) {
             const data = await response.json();
-            console.log("Manual Preview response:", data);
+            // For manual import, API might return owner, if not use placeholder
+            if (!data.owner && userLogin) {
+                 data.owner = { login: userLogin, avatar_url: userAvatar || "" };
+            }
             setPreviewData(data);
             setCommitPage(1); 
             setError(null);
+            setShowConfig(true); // Switch to config view
         } else {
             console.error("Failed to generate preview from URL");
-            // Optionally set an error state here specifically for manual import
         }
       } catch (error) {
           console.error("Error importing repo via URL:", error);
@@ -203,6 +269,84 @@ export function Hero() {
           setManualImportLoading(false);
       }
   };
+
+  const handleFinalDeploy = async (config: ProjectConfig) => {
+      if (!previewData) return;
+      
+      setDeploying(true);
+      try {
+        let token = localStorage.getItem("authToken");
+        if (!token) {
+             token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJiZTgwZjM5Mi1hN2NlLTQwYjUtOTc3Zi0xNjM5YjU3MjZkYTMiLCJpYXQiOjE3NjY1MDA2MzIsImV4cCI6MTc2NzEwNTQzMn0.NniSk_TnqLk3uRoyp9WrNkf4h_GQJe0Z3zKvEQX48Lg";
+        }
+
+        const envsString = config.envVars
+            .filter(e => e.key && e.value)
+            .map(e => `${e.key}=${e.value}`)
+            .join("\n");
+
+        const payload = {
+            deploy: {
+                owner: previewData.owner?.login || userLogin || "",
+                repoName: previewData.name,
+                rootDirectory: config.rootDirectory,
+                framework: config.framework,
+                buildCommand: config.buildCommand || "",
+                outputDir: config.outputDirectory || "",
+                installCommand: config.installCommand || "",
+                envs: envsString,
+                projectName: config.projectName
+            }
+        };
+
+        const response = await fetch("https://untolerative-len-rumblingly.ngrok-free.dev/user/new/deploy", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`,
+                "ngrok-skip-browser-warning": "true",
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            console.log("Deployment successful:", data);
+            
+            // Redirect to deploying page if status is true
+            if (data.status === true) {
+                 navigate("/deploying");
+            } else {
+                 setShowConfig(false);
+                 setImportingRepoId(null); 
+            }
+        } else {
+            console.error("Deployment failed");
+            const errData = await response.json().catch(() => ({}));
+            console.error(errData);
+            setError("Deployment failed. Please try again.");
+        }
+      } catch (error) {
+          console.error("Error deploying:", error);
+          setError("An error occurred during deployment.");
+      } finally {
+          setDeploying(false);
+      }
+  };
+
+  // If showing config page, override the main layout
+  if (showConfig && previewData) {
+      return (
+          <div className="min-h-screen bg-black text-white pt-24 px-4 sm:px-6 lg:px-8 animate-in fade-in duration-500">
+              <ImportConfiguration 
+                  repo={previewData}
+                  onBack={() => setShowConfig(false)}
+                  onDeploy={handleFinalDeploy}
+                  loading={deploying}
+              />
+          </div>
+      )
+  }
 
   return (
     <div className="min-h-screen bg-black text-white pt-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto flex flex-col lg:flex-row gap-8">
@@ -282,21 +426,30 @@ export function Hero() {
                     {repos.map((repo) => (
                         <div 
                             key={repo.id} 
-                            onClick={() => handleImport(repo)}
+                            onClick={() => handleRepoClick(repo, false)}
                             className={`flex items-center justify-between p-4 rounded-lg border border-zinc-800 bg-zinc-900/30 hover:bg-zinc-900/50 transition-colors group cursor-pointer ${importingRepoId === repo.id ? 'opacity-75' : ''}`}
                         >
                             <div className="flex items-start gap-3">
                                 <div className="mt-1 p-1.5 rounded-md bg-white/5 border border-white/5 text-zinc-400">
-                                   <Github className="h-5 w-5" />
+                                   <GitFork className="h-5 w-5" />
                                 </div>
                                 <div className="flex flex-col justify-center">
                                     <h3 className="font-medium text-white group-hover:text-blue-400 transition-colors text-sm">{repo.name}</h3>
-                                    {/* Removed user login from here as per "remove the profile for repos" implied clean look */}
+                                    {repo.language && (
+                                        <div className="flex items-center gap-1.5 mt-0.5">
+                                            <div className="h-2 w-2 rounded-full bg-yellow-400" /> 
+                                            <span className="text-[10px] text-zinc-500">{repo.language}</span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             <Button 
                                 size="sm" 
-                                className="bg-white text-black hover:bg-zinc-200 h-8 font-medium pointer-events-none"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRepoClick(repo, true);
+                                }}
+                                className="bg-white text-black hover:bg-zinc-200 h-8 font-medium cursor-pointer"
                             >
                                 {importingRepoId === repo.id ? (
                                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -423,7 +576,7 @@ export function Hero() {
                                 })()}
                              </div>
                              <div className="flex gap-3 text-[10px] text-zinc-500">
-                                {Object.keys(previewData.languages).slice(0, 3).map((lang, i) => (
+                                 {Object.keys(previewData.languages).slice(0, 3).map((lang, i) => (
                                     <div key={lang} className="flex items-center gap-1">
                                         <div className={`h-1.5 w-1.5 rounded-full ${['bg-white', 'bg-zinc-300', 'bg-zinc-500', 'bg-zinc-700'][i % 4]}`} />
                                         <span>{lang}</span>
@@ -433,7 +586,10 @@ export function Hero() {
                         </div>
                     )}
 
-                         <Button className="w-full bg-white text-black hover:bg-zinc-200 border border-white h-9 text-sm font-bold tracking-tight rounded-md transition-all">
+                         <Button 
+                            onClick={() => setShowConfig(true)}
+                            className="w-full bg-white text-black hover:bg-zinc-200 border border-white h-9 text-sm font-bold tracking-tight rounded-md transition-all"
+                         >
                             DEPLOY
                          </Button>
 

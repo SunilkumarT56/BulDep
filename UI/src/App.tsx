@@ -8,6 +8,8 @@ import { VerifyPage } from "@/components/VerifyPage";
 import { LandingPage } from "@/components/LandingPage";
 import { SignupPage } from "@/components/SignupPage";
 import { SignupStepTwo } from "@/components/SignupStepTwo";
+import { Footer } from "@/components/Footer";
+import { DeploymentStatusPage } from "@/components/DeploymentStatusPage";
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -231,7 +233,18 @@ function App() {
           )
         } 
       />
+      <Route 
+        path="/deploying" 
+        element={
+          isAuthenticated ? (
+             <DeploymentStatusPage />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        } 
+      />
     </Routes>
+    <Footer />
     </div>
   );
 }

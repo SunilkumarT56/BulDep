@@ -5,7 +5,18 @@ export interface AuthenticateUserRequest extends Request {
     id: string;
     email: string;
     avatar_url?: string;
-    
-
+  };
+}
+export interface DeployData extends AuthenticateUserRequest {
+  deploy: {
+    owner: string;
+    repoName: string;
+    rootDirectory: string;
+    framework: string;
+    buildCommand: string;
+    outputDir: string;
+    installCommand: string;
+    envs: string;
+    projectName: string;
   };
 }

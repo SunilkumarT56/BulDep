@@ -1,8 +1,16 @@
 import type { Request, Response } from "express";
-import type { AuthenticateUserRequest } from "../types/interface.js";
+import type {
+  AuthenticateUserRequest,
+  DeployData,
+} from "../types/interface.js";
 import { pool } from "../config/postgresql.js";
 import axios from "axios";
-import { getLastCommits } from "../services/github.service.js";
+import {
+  getLastCommits,
+  getRepoRootDirectories,
+  getRepoDirectoryContents,
+  detectFrontendFramework,
+} from "../services/github.service.js";
 
 export const userProfile = async (
   req: AuthenticateUserRequest,
@@ -169,8 +177,8 @@ export const repoPreviewController = async (
       },
     }
   );
-  const commitRes = await getLastCommits(accessToken , owner , repoName)
-  console.log(commitRes)
+  const commitRes = await getLastCommits(accessToken, owner, repoName);
+  console.log(commitRes);
 
   res.json({
     commits: commitRes,
@@ -187,10 +195,94 @@ export const repoPreviewController = async (
     languages: langRes.data,
   });
 };
-export const externalUrlController = async (req : Request , res : Response) => {
+export const externalUrlController = async (req: Request, res: Response) => {
   const { githubUrl } = req.body;
-  console.log(githubUrl)
+  console.log(githubUrl);
   res.json({
-    status : true
-  })
-}
+    status: true,
+  });
+};
+export const importRepoController = async (
+  req: AuthenticateUserRequest,
+  res: Response
+) => {
+  const { owner, repoName } = req.body;
+  const { id: userId } = req.user as { id: string };
+
+  if (!owner || !repoName) {
+    res.status(400).json({ error: "Missing repo info" });
+    return;
+  }
+  const { rows } = await pool.query(
+    `
+    SELECT access_token
+    FROM oauth_accounts
+    WHERE user_id = $1 AND provider = 'github'
+    LIMIT 1
+    `,
+    [userId]
+  );
+
+  const accessToken = rows[0]?.access_token;
+  if (!accessToken) {
+    res.status(400).json({ error: "GitHub not linked" });
+    return;
+  }
+
+  const dirs = await getRepoRootDirectories(accessToken, owner, repoName);
+  console.log(dirs);
+  res.json({
+    status: true,
+    directories: dirs,
+  });
+};
+export const frameworkDetectController = async (
+  req: AuthenticateUserRequest,
+  res: Response
+) => {
+  const { owner, repoName, rootDirectory } = req.body;
+  console.log(owner, repoName, rootDirectory);
+  const { id: userId } = req.user as { id: string };
+
+  if (!owner || !repoName) {
+    res.status(400).json({ error: "Missing repo info" });
+    return;
+  }
+  const { rows } = await pool.query(
+    `
+    SELECT access_token
+    FROM oauth_accounts
+    WHERE user_id = $1 AND provider = 'github'
+    LIMIT 1
+    `,
+    [userId]
+  );
+
+  const accessToken = rows[0]?.access_token;
+  if (!accessToken) {
+    res.status(400).json({ error: "GitHub not linked" });
+    return;
+  }
+  const files = await getRepoDirectoryContents(
+    accessToken,
+    owner,
+    repoName,
+    rootDirectory
+  );
+  const response = await detectFrontendFramework(files);
+  console.log(response);
+  res.json({
+    status: true,
+    response,
+  });
+};
+export const deployProjectController = async (
+  req: DeployData,
+  res: Response
+) => {
+  const data = req.body as DeployData;
+  console.log(data);
+  res.json({
+    status: true,
+  });
+};

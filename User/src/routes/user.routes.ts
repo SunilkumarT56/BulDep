@@ -4,7 +4,10 @@ import {
   userProfile,
   repoListController,
   repoPreviewController,
-  externalUrlController
+  externalUrlController,
+  importRepoController,
+  frameworkDetectController,
+  deployProjectController,
 } from "../controllers/user.controller.js";
 
 const router = express.Router();
@@ -12,6 +15,9 @@ const router = express.Router();
 router.get("/me", authMiddleware, userProfile);
 router.get("/new", authMiddleware, repoListController);
 router.post("/preview", authMiddleware, repoPreviewController);
-router.post("/github-url",authMiddleware,externalUrlController)
+router.post("/github-url", authMiddleware, externalUrlController);
+router.post("/new/import", authMiddleware, importRepoController);
+router.post("/new/framework", authMiddleware, frameworkDetectController);
+router.post("/new/deploy", authMiddleware, deployProjectController as any);
 
 export default router;
