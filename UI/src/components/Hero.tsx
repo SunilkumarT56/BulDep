@@ -280,10 +280,9 @@ export function Hero() {
              token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJiZTgwZjM5Mi1hN2NlLTQwYjUtOTc3Zi0xNjM5YjU3MjZkYTMiLCJpYXQiOjE3NjY1MDA2MzIsImV4cCI6MTc2NzEwNTQzMn0.NniSk_TnqLk3uRoyp9WrNkf4h_GQJe0Z3zKvEQX48Lg";
         }
 
-        const envsString = config.envVars
+        const envsObject = config.envVars
             .filter(e => e.key && e.value)
-            .map(e => `${e.key}=${e.value}`)
-            .join("\n");
+            .reduce((acc, curr) => ({ ...acc, [curr.key]: curr.value }), {});
 
         const payload = {
             deploy: {
@@ -294,7 +293,7 @@ export function Hero() {
                 buildCommand: config.buildCommand || "",
                 outputDir: config.outputDirectory || "",
                 installCommand: config.installCommand || "",
-                envs: envsString,
+                envs: envsObject,
                 projectName: config.projectName
             }
         };

@@ -5,6 +5,7 @@ import type {
 } from "../types/interface.js";
 import { pool } from "../config/postgresql.js";
 import axios from "axios";
+import { enqueueEvent } from "../config/enque.js";
 import {
   getLastCommits,
   getRepoRootDirectories,
@@ -280,9 +281,66 @@ export const deployProjectController = async (
   req: DeployData,
   res: Response
 ) => {
+  const { id: userId } = req.user as { id: string };
   const data = req.body as DeployData;
-  console.log(data);
-  res.json({
-    status: true,
-  });
+  const { owner, repoName, rootDirectory, framework } = data.deploy;
+  const { rows } = await pool.query(
+    `
+    SELECT id FROM projects
+    WHERE user_id = $1 AND repo_owner = $2 AND repo_name = $3
+    `,
+    [userId, owner, repoName]
+  );
+
+  let projectId = rows[0]?.id;
+
+  if (!projectId) {
+    const result = await pool.query(
+      `
+      INSERT INTO projects
+      (user_id, repo_owner, repo_name, root_dir, framework)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id
+      `,
+      [userId, owner, repoName, rootDirectory, framework]
+    );
+    projectId = result.rows[0].id;
+  } else {
+    await pool.query(
+      `
+      UPDATE projects
+      SET root_dir = $1, framework = $2
+      WHERE id = $3
+      `,
+      [rootDirectory, framework, projectId]
+    );
+  }
+  const deploymentRes = await pool.query(
+    `
+  INSERT INTO deployments
+  (
+    project_id,
+    status,
+    install_command,
+    build_command,
+    output_dir,
+    envs
+  )
+  VALUES ($1, 'QUEUED', $2, $3, $4, $5)
+  RETURNING id
+  `,
+    [
+      projectId,
+      data.deploy.installCommand,
+      data.deploy.buildCommand,
+      data.deploy.outputDir,
+      data.deploy.envs,
+    ]
+  );
+
+  const deploymentId = deploymentRes.rows[0].id;
+  await enqueueEvent(deploymentId);
+  console.log(projectId);
+
+  res.json({ status: true, deploymentId });
 };
