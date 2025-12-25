@@ -7,6 +7,7 @@ import bodyParser from "body-parser";
 dotenv.config();
 import { connectDB } from "./conifg/db.js";
 await connectDB();
+import { pollSQS } from "./conifg/deque.js";
 
 const PORT = process.env.PORT;
 
@@ -28,3 +29,4 @@ app.use("/api/webhook", webhookRouter);
 app.listen(PORT, () => {
   console.log(`App listening on port ${PORT}`);
 });
+pollSQS()

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Github, ChevronRight, ChevronLeft, Loader2, ExternalLink, GitFork } from "lucide-react";
+import { Search, Github, ChevronRight, ChevronLeft, Loader2, ExternalLink } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { ImportConfiguration, type ProjectConfig } from "./ImportConfiguration";
@@ -428,16 +428,18 @@ export function Hero() {
                             onClick={() => handleRepoClick(repo, false)}
                             className={`flex items-center justify-between p-4 rounded-lg border border-zinc-800 bg-zinc-900/30 hover:bg-zinc-900/50 transition-colors group cursor-pointer ${importingRepoId === repo.id ? 'opacity-75' : ''}`}
                         >
-                            <div className="flex items-start gap-3">
-                                <div className="mt-1 p-1.5 rounded-md bg-white/5 border border-white/5 text-zinc-400">
-                                   <GitFork className="h-5 w-5" />
+                            <div className="flex items-start gap-4">
+                                <div className="mt-1 h-10 w-10 shrink-0 rounded-full flex items-center justify-center bg-white text-black shadow-sm">
+                                   <Github className="h-6 w-6" />
                                 </div>
-                                <div className="flex flex-col justify-center">
-                                    <h3 className="font-medium text-white group-hover:text-blue-400 transition-colors text-sm">{repo.name}</h3>
+                                <div className="flex flex-col justify-center gap-1">
+                                    <h3 className="font-semibold text-white group-hover:text-blue-400 transition-colors text-base tracking-tight">{repo.name}</h3>
                                     {repo.language && (
-                                        <div className="flex items-center gap-1.5 mt-0.5">
-                                            <div className="h-2 w-2 rounded-full bg-yellow-400" /> 
-                                            <span className="text-[10px] text-zinc-500">{repo.language}</span>
+                                        <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/5 border border-white/5">
+                                                <div className="h-1.5 w-1.5 rounded-full bg-current text-yellow-400" /> 
+                                                <span className="text-[10px] font-medium text-zinc-400">{repo.language}</span>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
