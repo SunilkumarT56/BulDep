@@ -376,7 +376,7 @@ importers:
         specifier: ^5.4.21
         version: 5.4.21(@types/node@24.10.4)
 
-  apps/user:
+  apps/zylo:
     dependencies:
       '@prisma/adapter-pg':
         specifier: ^7.2.0
@@ -460,6 +460,12 @@ importers:
         version: 5.9.3
 
   packages/errors:
+    devDependencies:
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+
+  packages/scopes:
     devDependencies:
       '@repo/typescript-config':
         specifier: workspace:*
@@ -2982,7 +2988,7 @@ packages:
   /@types/cors@2.8.19:
     resolution: {integrity: sha512-mFNylyeyqN93lfe/9CSxOGREz8cpzAhH+E93xJ4xWQf62V8sQ/24reV2nyzUWM6H6Xji+GGHpkbLe7pVoUEskg==}
     dependencies:
-      '@types/node': 25.0.3
+      '@types/node': 24.10.4
 
   /@types/dotenv@6.1.1:
     resolution: {integrity: sha512-ftQl3DtBvqHl9L16tpqqzA4YzCSXZfi7g8cQceTz5rOlYtk/IZbFjAv3mLOQlNIgOaylCQWQoBdDQHPgEBJPHg==}
@@ -3072,11 +3078,12 @@ packages:
     resolution: {integrity: sha512-W609buLVRVmeW693xKfzHeIV6nJGGz98uCPfeXI1ELMLXVeKYZ9m15fAMSaUPBHYLGFsVRcMmSCksQOrZV9BYA==}
     dependencies:
       undici-types: 7.16.0
+    dev: true
 
   /@types/pg@8.16.0:
     resolution: {integrity: sha512-RmhMd/wD+CF8Dfo+cVIy3RR5cl8CyfXQ0tGgW6XBL8L4LM/UTEbNXYRbLwU6w+CgrKBNbrQWt4FUtTfaU5jSYQ==}
     dependencies:
-      '@types/node': 25.0.3
+      '@types/node': 24.10.4
       pg-protocol: 1.10.3
       pg-types: 2.2.0
     dev: true

@@ -74,5 +74,12 @@
   },
   "[typescriptreact]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
-  }
+  },
+  "todo-tree.general.tags": ["TODO", "FIXME", "BUG", "HACK", "OPTIMIZE"],
+
+  "todo-tree.highlights.enabled": true,
+  "todo-tree.highlights.useColourScheme": true,
+
+  "todo-tree.tree.showCountsInTree": true,
+  "todo-tree.tree.hideTreeWhenEmpty": false
 }

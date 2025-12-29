@@ -1,0 +1,20 @@
+2025-12-29T07:39:46.955318Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo/cookies/.turbo-cookie"), AnchoredSystemPathBuf(".turbo/cookies/1.cookie")}
+2025-12-29T07:39:46.955326Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2025-12-29T07:39:49.652182Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/ui/vite.config.ts.timestamp-1766993989612-aff8c02cbb716.mjs")}
+2025-12-29T07:39:49.652204Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("vc-ui"), path: AnchoredSystemPathBuf("apps/ui") }}))
+2025-12-29T07:39:49.751641Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/ui/vite.config.ts.timestamp-1766993989612-aff8c02cbb716.mjs")}
+2025-12-29T07:39:49.751649Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("vc-ui"), path: AnchoredSystemPathBuf("apps/ui") }}))
+2025-12-29T07:42:09.145478Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/auth/src/controllers/auth.controller.ts")}
+2025-12-29T07:42:09.145502Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@zylo/auth-service"), path: AnchoredSystemPathBuf("apps/auth") }}))
+2025-12-29T07:43:57.846347Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/auth/src/controllers/auth.controller.ts")}
+2025-12-29T07:43:57.846362Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@zylo/auth-service"), path: AnchoredSystemPathBuf("apps/auth") }}))
+2025-12-29T07:44:08.147192Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/auth/src/controllers/auth.controller.ts")}
+2025-12-29T07:44:08.147207Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@zylo/auth-service"), path: AnchoredSystemPathBuf("apps/auth") }}))
+2025-12-29T07:44:17.546656Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/auth/src/controllers/auth.controller.ts")}
+2025-12-29T07:44:17.546665Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@zylo/auth-service"), path: AnchoredSystemPathBuf("apps/auth") }}))
+2025-12-29T07:44:17.547208Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2025-12-29T07:45:44.147690Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/auth/src/controllers/auth.controller.ts")}
+2025-12-29T07:45:44.147708Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@zylo/auth-service"), path: AnchoredSystemPathBuf("apps/auth") }}))
+2025-12-29T07:45:50.347227Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/auth/src/controllers/auth.controller.ts")}
+2025-12-29T07:45:50.347241Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@zylo/auth-service"), path: AnchoredSystemPathBuf("apps/auth") }}))
+2025-12-29T07:45:50.360965Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
