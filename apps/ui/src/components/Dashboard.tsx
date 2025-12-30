@@ -133,13 +133,6 @@ export function Dashboard() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <Button
-              className="bg-white text-black hover:bg-zinc-200 h-10 px-5 font-bold text-sm tracking-tight rounded-lg shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.2)] transition-all flex items-center gap-2"
-              onClick={() => navigate('/new')}
-            >
-              <Plus className="h-4 w-4" />
-              New Project
-            </Button>
           </div>
         </div>
 

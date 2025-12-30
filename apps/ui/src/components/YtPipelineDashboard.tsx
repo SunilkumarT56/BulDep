@@ -31,12 +31,20 @@ interface ChannelData {
   uploadsPlaylistId: string;
 }
 
+interface Pipeline {
+  name: string;
+  admin_name: string;
+  color?: string;
+  _id?: string;
+}
+
 export function YtPipelineDashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [hasPermission, setHasPermission] = useState(false);
   const [channelData, setChannelData] = useState<ChannelData | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [pipelines, setPipelines] = useState<Pipeline[]>([]);
 
   useEffect(() => {
     const checkPermission = async () => {
@@ -54,6 +62,7 @@ export function YtPipelineDashboard() {
       }
 
       try {
+        // 1. Fetch Channel Info
         const response = await fetch(
           'https://untolerative-len-rumblingly.ngrok-free.dev/user/yt-pipeline/me',
           {
@@ -70,6 +79,37 @@ export function YtPipelineDashboard() {
             setHasPermission(true);
             setChannelData(data.responsePayload.channel);
             setUserEmail(data.responsePayload.email);
+
+            // 2. Fetch Pipelines (only if authenticated)
+            try {
+              const pipelinesResponse = await fetch(
+                'https://untolerative-len-rumblingly.ngrok-free.dev/user/dashboard/pipeline',
+                {
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    'ngrok-skip-browser-warning': 'true',
+                  },
+                },
+              );
+              if (pipelinesResponse.ok) {
+                const pipelinesData = await pipelinesResponse.json();
+                // Assuming the API returns the array directly or in a wrapper
+                // Adjust based on actual response structure if needed.
+                // Based on "get the response as object name , admin_name", lets assume it might be a list of these objects.
+                // If it returns { pipelines: [...] } I'll need to adjust.
+                // For now, I'll assume it returns the array or check for a property.
+                if (Array.isArray(pipelinesData)) {
+                  setPipelines(pipelinesData);
+                } else if (pipelinesData.pipelines && Array.isArray(pipelinesData.pipelines)) {
+                  setPipelines(pipelinesData.pipelines);
+                } else if (pipelinesData.name) {
+                  // Single object case
+                  setPipelines([pipelinesData]);
+                }
+              }
+            } catch (err) {
+              console.error('Failed to fetch pipelines', err);
+            }
           } else {
             setHasPermission(false);
           }
@@ -152,12 +192,7 @@ export function YtPipelineDashboard() {
               Manage your automated content creation pipeline.
             </p>
           </div>
-          <div className="flex items-center gap-4">
-            <Button className="bg-white text-black hover:bg-zinc-200 h-10 px-5 font-bold text-sm tracking-tight rounded-lg shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.2)] transition-all flex items-center gap-2">
-              <Video className="h-4 w-4" />
-              New Video
-            </Button>
-          </div>
+          <div className="flex items-center gap-4"></div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
@@ -235,17 +270,72 @@ export function YtPipelineDashboard() {
 
           {/* Main Content Area */}
           <div className="lg:col-span-9">
-            <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] min-h-[400px] flex flex-col items-center justify-center p-12 text-center">
-              <div className="h-16 w-16 bg-white/5 rounded-full flex items-center justify-center mb-6">
-                <Video className="h-8 w-8 text-zinc-500" />
+            {pipelines.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {pipelines.map((pipeline, index) => (
+                  <div
+                    key={pipeline._id || index}
+                    className="relative group rounded-xl border border-white/10 bg-zinc-950/50 p-5 hover:bg-zinc-900/50 transition-all cursor-pointer overflow-hidden"
+                  >
+                    <div
+                      className="absolute top-0 left-0 w-1 h-full opacity-60 group-hover:opacity-100 transition-opacity"
+                      style={{ backgroundColor: pipeline.color || '#3B82F6' }}
+                    />
+
+                    <div className="flex items-start gap-4 mb-4">
+                      <div className="h-10 w-10 rounded-full border border-white/10 bg-black/50 overflow-hidden flex-shrink-0">
+                        {channelData?.thumbnails.high.url ? (
+                          <img
+                            src={channelData.thumbnails.high.url}
+                            alt="Channel"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-white/5">
+                            <Youtube className="w-5 h-5 text-zinc-500" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-white font-semibold truncate pr-2">{pipeline.name}</h4>
+                        <div className="flex flex-col gap-0.5 mt-1">
+                          <span className="text-xs text-zinc-400 truncate font-medium">
+                            {channelData?.title}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-zinc-500">Admin:</span>
+                            <span className="text-xs text-zinc-300 truncate">
+                              {pipeline.admin_name}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
+                      <span className="text-xs text-zinc-500 flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                        Active
+                      </span>
+                      <span className="text-[10px] text-zinc-600 uppercase tracking-wider font-medium">
+                        Pipeline
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <h3 className="text-xl font-medium text-white mb-2">No active automations</h3>
-              <p className="text-zinc-500 max-w-md mb-8">
-                Get started by creating your first video generation pipeline. You can automate
-                fetching, editing, and uploading.
-              </p>
-              <Button className="bg-white text-black hover:bg-zinc-200">Create Pipeline</Button>
-            </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] min-h-[400px] flex flex-col items-center justify-center p-12 text-center">
+                <div className="h-16 w-16 bg-white/5 rounded-full flex items-center justify-center mb-6">
+                  <Video className="h-8 w-8 text-zinc-500" />
+                </div>
+                <h3 className="text-xl font-medium text-white mb-2">No active automations</h3>
+                <p className="text-zinc-500 max-w-md mb-8">
+                  Get started by creating your first video generation pipeline. You can automate
+                  fetching, editing, and uploading.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

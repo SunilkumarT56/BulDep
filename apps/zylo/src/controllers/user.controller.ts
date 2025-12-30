@@ -39,7 +39,7 @@ export const userProfile = async (req: AuthenticateUserRequest, res: Response): 
     return;
   }
   console.log(user);
-  res.json({
+  res.status(200).json({
     authenticated: true,
     user,
   });
@@ -544,5 +544,59 @@ export const userProfileYT = AsyncHandler(
       responsePayload,
     });
     return new Promise(() => {});
+  },
+);
+export const createNewPipeline = AsyncHandler(
+  async (req: AuthenticateUserRequest, res: Response): Promise<void> => {
+    const { name, adminName } = req.body;
+    console.log(name, adminName);
+    const { id } = req.user as { id: string };
+    const response = await pool.query(
+      `
+      SELECT u.id,
+      oa.channel_id
+      FROM users u
+      LEFT JOIN oauth_accounts oa
+      ON oa.user_id = u.id
+      WHERE u.id = $1
+      LIMIT 1`,
+      [id],
+    );
+    const channelId = response.rows[0].channel_id;
+
+    const { rows } = await pool.query(
+      `
+    INSERT INTO pipelines (name, admin_id, admin_name ,youtube_channel_id)
+VALUES ($1,$2,$3, $4)
+
+`,
+      [name, id, adminName, channelId],
+    );
+    res.json({
+      status: true,
+      message: 'pipeline created',
+    });
+  },
+);
+export const dashboardYTPipeline = AsyncHandler(
+  async (req: AuthenticateUserRequest, res: Response): Promise<void> => {
+    const { id } = req.user as { id: string };
+    const { rows } = await pool.query(
+      `SELECT u.id,
+    p.admin_name,
+    p.name
+    FROM users u
+    JOIN pipelines p
+    ON p.admin_id = u.id
+    WHERE u.id = $1
+    `,
+      [id],
+    );
+    console.log(rows[0]);
+    const pipelines = rows;
+    res.json({
+      status: true,
+      pipelines,
+    });
   },
 );
