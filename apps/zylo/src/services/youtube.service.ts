@@ -2,19 +2,18 @@ import { ERROR_CODES } from '@zylo/errors';
 import axios from 'axios';
 import dotenv from 'dotenv';
 dotenv.config();
-import fs from 'fs';
-import type { Secret, GetPublicKeyOrSecret } from 'jsonwebtoken';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import crypto from 'crypto';
+import { pool } from '../config/postgresql.js';
 
+const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3/channels';
 export async function fetchMyChannelDetails(access_token: string) {
   if (!access_token || access_token === '') {
     throw new Error(ERROR_CODES.UNAUTHORIZED_ACCESS);
   }
 
   try {
-    const response = await axios.get(process.env.YOUTUBE_API_URL!, {
+    const response = await axios.get(YOUTUBE_API_URL!, {
       params: {
         part: 'snippet,contentDetails,statistics',
         mine: true,
@@ -24,12 +23,10 @@ export async function fetchMyChannelDetails(access_token: string) {
         Accept: 'application/json',
       },
     });
-
-    const channelData = response.data.items?.[0];
-
-    if (!channelData) {
-      throw new Error(ERROR_CODES.INTERNAL_SERVER_ERROR);
+    if (!response.data.items || response.data.items.length === 0) {
+      throw new Error('NO_YOUTUBE_CHANNEL');
     }
+    const channelData = response.data.items?.[0];
 
     return channelData;
   } catch (error: any) {
@@ -55,31 +52,36 @@ const VIDEO_METADATA = {
     privacyStatus: 'public',
   },
 };
+export const getValidGoogleAccessToken = async (oauthAccount: any) => {
+  if (new Date(oauthAccount.access_token_expires_at) > new Date()) {
+    return oauthAccount.access_token;
+  }
 
-export const getGooglePublicKeySomehow = (): GetPublicKeyOrSecret => {
-  return (header: any, callback: any) => {
-    axios
-      .get('https://www.googleapis.com/oauth2/v3/certs')
-      .then((response) => {
-        const keys = response.data.keys;
-        const kid = header.kid;
-        const key = keys.find((k: any) => k.kid === kid);
+  const response = await axios.post(
+    'https://oauth2.googleapis.com/token',
+    {
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      refresh_token: oauthAccount.refresh_token,
+      grant_type: 'refresh_token',
+    },
+    { headers: { 'Content-Type': 'application/json' } },
+  );
 
-        if (!key) {
-          return callback(new Error('Unable to find key with matching kid'));
-        }
-        const publicKey = crypto.createPublicKey({
-          key: {
-            kty: key.kty,
-            n: key.n,
-            e: key.e,
-          },
-          format: 'jwk',
-        });
+  const { access_token, expires_in } = response.data;
 
-        const pem = publicKey.export({ format: 'pem', type: 'spki' });
-        callback(null, pem);
-      })
-      .catch((err) => callback(err));
-  };
+  const expiresAt = new Date(Date.now() + expires_in * 1000);
+
+  await pool.query(
+    `
+    UPDATE oauth_accounts
+    SET access_token = $1,
+        access_token_expires_at = $2,
+        updated_at = NOW()
+    WHERE id = $3
+    `,
+    [access_token, expiresAt, oauthAccount.id],
+  );
+
+  return access_token;
 };

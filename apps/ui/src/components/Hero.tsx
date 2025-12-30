@@ -142,7 +142,7 @@ export function Hero() {
 
         if (!token) {
           token =
-            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJiZTgwZjM5Mi1hN2NlLTQwYjUtOTc3Zi0xNjM5YjU3MjZkYTMiLCJpYXQiOjE3NjY1MDA2MzIsImV4cCI6MTc2NzEwNTQzMn0.NniSk_TnqLk3uRoyp9WrNkf4h_GQJe0Z3zKvEQX48Lg';
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NDhmZjI3MC04ZGYzLTQ5MWQtOTg5ZC00NjE5MjZlOWYyNDQiLCJpYXQiOjE3NjcwMDA1MjAsImV4cCI6MTc2NzYwNTMyMH0.yMsdZc22iXl_FU1Gw_JIXvENljqEQbI_Rh3iohP8k2Q';
         }
 
         const headers: HeadersInit = {
@@ -200,7 +200,7 @@ export function Hero() {
       let token = localStorage.getItem('authToken');
       if (!token) {
         token =
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJiZTgwZjM5Mi1hN2NlLTQwYjUtOTc3Zi0xNjM5YjU3MjZkYTMiLCJpYXQiOjE3NjY1MDA2MzIsImV4cCI6MTc2NzEwNTQzMn0.NniSk_TnqLk3uRoyp9WrNkf4h_GQJe0Z3zKvEQX48Lg';
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NDhmZjI3MC04ZGYzLTQ5MWQtOTg5ZC00NjE5MjZlOWYyNDQiLCJpYXQiOjE3NjcwMDA1MjAsImV4cCI6MTc2NzYwNTMyMH0.yMsdZc22iXl_FU1Gw_JIXvENljqEQbI_Rh3iohP8k2Q';
       }
 
       const owner = userLogin || repo.owner?.login;
@@ -297,7 +297,7 @@ export function Hero() {
       let token = localStorage.getItem('authToken');
       if (!token) {
         token =
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJiZTgwZjM5Mi1hN2NlLTQwYjUtOTc3Zi0xNjM5YjU3MjZkYTMiLCJpYXQiOjE3NjY1MDA2MzIsImV4cCI6MTc2NzEwNTQzMn0.NniSk_TnqLk3uRoyp9WrNkf4h_GQJe0Z3zKvEQX48Lg';
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NDhmZjI3MC04ZGYzLTQ5MWQtOTg5ZC00NjE5MjZlOWYyNDQiLCJpYXQiOjE3NjcwMDA1MjAsImV4cCI6MTc2NzYwNTMyMH0.yMsdZc22iXl_FU1Gw_JIXvENljqEQbI_Rh3iohP8k2Q';
       }
 
       const response = await fetch(
@@ -340,7 +340,7 @@ export function Hero() {
       let token = localStorage.getItem('authToken');
       if (!token) {
         token =
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJiZTgwZjM5Mi1hN2NlLTQwYjUtOTc3Zi0xNjM5YjU3MjZkYTMiLCJpYXQiOjE3NjY1MDA2MzIsImV4cCI6MTc2NzEwNTQzMn0.NniSk_TnqLk3uRoyp9WrNkf4h_GQJe0Z3zKvEQX48Lg';
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NDhmZjI3MC04ZGYzLTQ5MWQtOTg5ZC00NjE5MjZlOWYyNDQiLCJpYXQiOjE3NjcwMDA1MjAsImV4cCI6MTc2NzYwNTMyMH0.yMsdZc22iXl_FU1Gw_JIXvENljqEQbI_Rh3iohP8k2Q';
       }
 
       const envsObject = config.envVars

@@ -7,11 +7,12 @@ import {
   oauthGoogleController,
   redirectHandlerGoogleController
 } from "../controllers/auth.controller.js";
+import { AuthMiddleware } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 router.post("/email",emailRequestController)
 router.get("/github", oauthGithubController);
-router.get("/google",oauthGoogleController )
+router.get("/google", oauthGoogleController )
 router.get("/github/callback", redirectHandlerGithubController);
 router.get("/google/callback",redirectHandlerGoogleController)
 router.post("/logout", logoutController);

@@ -33,7 +33,7 @@ export function Dashboard() {
         let token = localStorage.getItem('authToken');
         if (!token) {
           token =
-            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJiZTgwZjM5Mi1hN2NlLTQwYjUtOTc3Zi0xNjM5YjU3MjZkYTMiLCJpYXQiOjE3NjY1MDA2MzIsImV4cCI6MTc2NzEwNTQzMn0.NniSk_TnqLk3uRoyp9WrNkf4h_GQJe0Z3zKvEQX48Lg';
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NDhmZjI3MC04ZGYzLTQ5MWQtOTg5ZC00NjE5MjZlOWYyNDQiLCJpYXQiOjE3NjcwMDA1MjAsImV4cCI6MTc2NzYwNTMyMH0.yMsdZc22iXl_FU1Gw_JIXvENljqEQbI_Rh3iohP8k2Q';
         }
 
         const response = await fetch(
@@ -80,15 +80,17 @@ export function Dashboard() {
     return Math.floor(seconds) + 's ago';
   };
 
-  const projects = deploymentData.map((item) => ({
-    id: item.deployment_id,
-    name: item.projectname,
-    domain: `${item.projectname}.zylo.dev`,
-    repo: `${item.repo_owner}/${item.repo_name}`,
-    lastCommitMessage: `Deployment ${item.status}`,
-    timeAgo: timeAgo(item.deployment_created_at),
-    branch: 'main',
-  }));
+  const projects = deploymentData
+    .filter((item) => item && item.projectname && item.projectname.trim() !== '')
+    .map((item) => ({
+      id: item.deployment_id,
+      name: item.projectname || '',
+      domain: `${item.projectname || ''}.zylo.dev`,
+      repo: `${item.repo_owner}/${item.repo_name}`,
+      lastCommitMessage: `Deployment ${item.status}`,
+      timeAgo: timeAgo(item.deployment_created_at),
+      branch: 'main',
+    }));
 
   // Filter projects based on search query
   const filteredProjects = projects.filter((project) =>

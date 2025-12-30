@@ -11,9 +11,10 @@ import { redisClient } from '../config/redis.js';
 import { sendEmail } from '../services/email.service.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ERROR_CODES } from '@zylo/errors';
-import { fetchMyChannelDetails, uploadVideo } from '../services/youtube.service.js';
+import { fetchMyChannelDetails } from '../services/youtube.service.js';
 import { GOOGLE_OAUTH_SCOPES } from '@zylo/scopes';
 import { getGooglePublicKeySomehow } from '../services/youtube.service.js';
+import type { AuthenticateUserRequest } from '@zylo/types';
 
 export const oauthGoogleController = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
@@ -27,11 +28,12 @@ export const oauthGoogleController = asyncHandler(
     });
 
     const oauthUrl = `https://accounts.google.com/o/oauth2/auth?${params.toString()}`;
-    res.redirect(oauthUrl);
+    res.redirect(302, oauthUrl);
   },
 );
 export const redirectHandlerGoogleController = asyncHandler(async (req: Request, res: Response) => {
   const code = req.query.code as string;
+
   if (!code) {
     return res.status(400).send(ERROR_CODES.UNAUTHORIZED_ACCESS);
   }
@@ -53,6 +55,13 @@ export const redirectHandlerGoogleController = asyncHandler(async (req: Request,
     );
 
     const { access_token, refresh_token, id_token, expires_in } = tokenResponse.data;
+    const expiresAt = new Date(Date.now() + expires_in * 1000);
+
+    console.log('Google Token Response:', {
+      hasAccessToken: !!access_token,
+      hasRefreshToken: !!refresh_token,
+      expiresIn: expires_in,
+    });
 
     if (!access_token || !id_token) {
       return res.status(401).json({
@@ -61,8 +70,6 @@ export const redirectHandlerGoogleController = asyncHandler(async (req: Request,
       });
     }
 
-    // 2. VERIFY id_token (important)
-    // jwt.verify with a callback function for secret must use callback pattern
     const decoded: any = await new Promise((resolve, reject) => {
       jwt.verify(
         id_token,
@@ -72,9 +79,7 @@ export const redirectHandlerGoogleController = asyncHandler(async (req: Request,
           issuer: ['https://accounts.google.com', 'accounts.google.com'],
         },
         (err, decoded) => {
-          if (err) {
-            return reject(err);
-          }
+          if (err) return reject(err);
           resolve(decoded);
         },
       );
@@ -85,78 +90,46 @@ export const redirectHandlerGoogleController = asyncHandler(async (req: Request,
       return res.status(400).send('Email permission not granted');
     }
 
-    // 3. Fetch channel
-    const channelData = await fetchMyChannelDetails(access_token);
-    const channelId = channelData.id;
-    const provider = 'google';
-
     await client.query('BEGIN');
-
-    // 4. Find user
-    const userRes = await client.query(
+    const userResult = await client.query(
       `
-        SELECT u.id
-        FROM users u
-        LEFT JOIN oauth_accounts oa
-          ON oa.user_id = u.id
-         AND oa.provider = $1
-         AND oa.channel_id = $2
-        WHERE oa.user_id IS NOT NULL
-           OR u.email = $3
-        LIMIT 1
+        INSERT INTO users (email)
+        VALUES ($1)
+        ON CONFLICT (email)
+        DO UPDATE SET email = EXCLUDED.email
+        RETURNING id
         `,
-      [provider, channelId, email],
+      [email],
     );
 
-    let userId: string;
-
-    if (userRes.rowCount === 0) {
-      const createUserRes = await client.query(
-        `
-          INSERT INTO users (email)
-          VALUES ($1)
-          RETURNING id
-          `,
-        [email],
-      );
-      userId = createUserRes.rows[0].id;
-    } else {
-      userId = userRes.rows[0].id;
-    }
-
-    // 5. Upsert oauth account
+    const userId = userResult.rows[0].id;
+    const channelData = await fetchMyChannelDetails(access_token);
+    const channelId = channelData.id;
     await client.query(
       `
-      INSERT INTO oauth_accounts
-        (user_id, provider, provider_user_id, channel_id, access_token, refresh_token, scope)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      ON CONFLICT (provider, provider_user_id)
-      DO UPDATE SET
-        access_token = EXCLUDED.access_token,
-        refresh_token = COALESCE(EXCLUDED.refresh_token, oauth_accounts.refresh_token),
-        scope = EXCLUDED.scope,
-        updated_at = NOW()
-      `,
-      [
-        userId,
-        provider,
-        channelId, // provider_user_id
-        channelId,
-        access_token,
-        refresh_token,
-        GOOGLE_OAUTH_SCOPES,
-      ],
+        INSERT INTO oauth_accounts
+          (user_id, provider, provider_user_id, channel_id, access_token, refresh_token, scope , access_token_expires_at)
+        VALUES ($1, 'google', $2, $3, $4, $5, $6 , $7)
+        ON CONFLICT (provider, provider_user_id)
+        DO UPDATE SET
+          access_token = EXCLUDED.access_token,
+          refresh_token = COALESCE(EXCLUDED.refresh_token, oauth_accounts.refresh_token),
+          scope = EXCLUDED.scope,
+          updated_at = NOW()
+        `,
+      [userId, channelId, channelId, access_token, refresh_token, GOOGLE_OAUTH_SCOPES, expiresAt],
     );
 
     await client.query('COMMIT');
 
     const authToken = generateJWT(userId);
+    console.log(authToken);
     cookieSender(req, res, 'zylo', authToken);
 
-    res.redirect('http://localhost:5173/dashboard');
+    res.redirect('http://localhost:5173/yt-pipeline-dashboard');
   } catch (err: any) {
     await client.query('ROLLBACK');
-    console.error('OAuth error:', err.response?.data || err.message);
+    console.error('OAuth error:', err.message);
     res.status(500).send('OAuth failed');
   } finally {
     client.release();

@@ -10,7 +10,8 @@ import {
   deployProjectController,
   repoInnerDirectoriesController,
   deployDashboard,
-  projectDashboard
+  projectDashboard,
+  userProfileYT
 } from "../controllers/user.controller.js";
 
 const router = express.Router();
@@ -25,6 +26,7 @@ router.post("/new/deploy", authMiddleware, deployProjectController as any);
 router.post("/new/inner-dir", authMiddleware, repoInnerDirectoriesController);
 router.post("/deploy-dashboard" , authMiddleware , deployDashboard)
 router.get("/dashboard" , authMiddleware , projectDashboard);
+router.get("/yt-pipeline/me",authMiddleware , userProfileYT)
 
 
 export default router;

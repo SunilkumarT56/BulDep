@@ -11,6 +11,7 @@ import {
 } from '../services/github.service.js';
 import { ERROR_CODES } from '@zylo/errors';
 import { AsyncHandler } from '../utils/asyncHandler.js';
+import { fetchMyChannelDetails, getValidGoogleAccessToken } from '../services/youtube.service.js';
 
 export const userProfile = async (req: AuthenticateUserRequest, res: Response): Promise<void> => {
   const { id } = req.user as { id: string };
@@ -455,5 +456,93 @@ ORDER BY d.created_at DESC;
       status: true,
       dashboardData,
     });
+  },
+);
+export const userProfileYT = AsyncHandler(
+  async (req: AuthenticateUserRequest, res: Response): Promise<void> => {
+    const { id: userId } = req.user as { id: string };
+    const { rows } = await pool.query(
+      `
+  SELECT
+    u.id,
+    u.email,
+    oa.id AS oauth_id,
+    oa.access_token,
+    oa.refresh_token,
+    oa.access_token_expires_at
+  FROM users u
+  LEFT JOIN oauth_accounts oa
+    ON oa.user_id = u.id AND oa.provider = 'google'
+  WHERE u.id = $1
+  LIMIT 1
+  `,
+      [userId],
+    );
+    const oauthAccount = rows[0];
+    console.log(oauthAccount);
+
+    if (!oauthAccount) {
+      res.status(401).json({ status: false });
+      return;
+    }
+    // Map alias to id for the service
+    oauthAccount.id = oauthAccount.oauth_id;
+
+    const access_token = oauthAccount.access_token;
+
+    if (!access_token) {
+      res.status(401).json({
+        status: false,
+        error: 'No access token found. Please reconnect your YouTube account.',
+      });
+      return;
+    }
+
+    if (!oauthAccount.refresh_token) {
+      console.error('Missing refresh_token for user', userId);
+      res.status(401).json({
+        status: false,
+        error: 'No refresh token found. Please reconnect your YouTube account.',
+      });
+      return;
+    }
+
+    let channelData;
+    try {
+      const access_token = await getValidGoogleAccessToken(oauthAccount);
+      channelData = await fetchMyChannelDetails(access_token);
+    } catch (error: any) {
+      console.error('Error in userProfileYT:', error.response?.data || error);
+      res.status(401).json({
+        status: false,
+        error:
+          'Failed to fetch YouTube channel details. The access token may be expired. Please reconnect your YouTube account.',
+        details: error.response?.data || error.message,
+      });
+      return;
+    }
+
+    const responsePayload = {
+      email: oauthAccount.email,
+      success: true,
+      message: 'YouTube account connected successfully',
+      channel: {
+        id: channelData.id,
+        title: channelData.snippet.title,
+        description: channelData.snippet.description,
+        thumbnails: channelData.snippet.thumbnails,
+        stats: {
+          subscribers: channelData.statistics.subscriberCount,
+          totalViews: channelData.statistics.viewCount,
+          videoCount: channelData.statistics.videoCount,
+        },
+        uploadsPlaylistId: channelData.contentDetails.relatedPlaylists.uploads,
+      },
+    };
+    res.json({
+      authenticated: true,
+      responsePayload,
+    });
+    return new Promise(() => {});
   },
 );

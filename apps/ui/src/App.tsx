@@ -10,6 +10,8 @@ import { SignupPage } from '@/components/SignupPage';
 import { SignupStepTwo } from '@/components/SignupStepTwo';
 import { Footer } from '@/components/Footer';
 import { DeploymentProgress } from '@/components/DeploymentProgress';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { YtPipelineDashboard } from '@/components/YtPipelineDashboard';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -42,7 +44,7 @@ function App() {
       if (!token) {
         console.log('Using fallback hardcoded token');
         token =
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJiZTgwZjM5Mi1hN2NlLTQwYjUtOTc3Zi0xNjM5YjU3MjZkYTMiLCJpYXQiOjE3NjY1MDA2MzIsImV4cCI6MTc2NzEwNTQzMn0.NniSk_TnqLk3uRoyp9WrNkf4h_GQJe0Z3zKvEQX48Lg';
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NDhmZjI3MC04ZGYzLTQ5MWQtOTg5ZC00NjE5MjZlOWYyNDQiLCJpYXQiOjE3NjcwMDA1MjAsImV4cCI6MTc2NzYwNTMyMH0.yMsdZc22iXl_FU1Gw_JIXvENljqEQbI_Rh3iohP8k2Q';
       }
 
       if (token) {
@@ -210,7 +212,9 @@ function App() {
                   userName={userName}
                 />
                 <main>
-                  <Dashboard />
+                  <ErrorBoundary>
+                    <Dashboard />
+                  </ErrorBoundary>
                 </main>
               </div>
             ) : (
@@ -246,6 +250,10 @@ function App() {
         <Route
           path="/deploying"
           element={isAuthenticated ? <DeploymentProgress /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/yt-pipeline-dashboard"
+          element={isAuthenticated ? <YtPipelineDashboard /> : <Navigate to="/login" replace />}
         />
       </Routes>
       {shouldShowFooter && <Footer />}
