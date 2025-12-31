@@ -89,3 +89,109 @@ export interface RepoData {
   repourl: string;
   subDir?: string;
 }
+export type PipelineType = "youtube_long" | "youtube_shorts";
+export type ExecutionMode = "manual" | "scheduled";
+
+export interface Pipeline {
+  id: string;
+  pipelineName: string;
+  ownerUserId: string;
+  organizationId?: string;
+
+  pipelineType: PipelineType;
+  executionMode: ExecutionMode;
+  status: "idle" | "disabled";  //after creating the pipeline
+
+  contentSource: ContentSourceConfig;
+  youtube: YouTubeConfig;
+  metadataStrategy: MetadataStrategy;
+  thumbnail: ThumbnailConfig;
+
+  schedule?: ScheduleConfig;
+
+  approvalFlow: ApprovalFlow;
+  limits: PipelineLimits;
+  events?: PipelineEvents;
+
+  stats: PipelineStats;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContentSourceConfig {
+  type: "upload" | "drive" | "s3" | "git";
+  config?: Record<string, any> | null;
+}
+
+export interface YouTubeConfig {
+  channelId: string;
+  oauthConnectionId: string;
+  defaultPrivacy: "public" | "unlisted" | "private";
+  categoryId: string;
+  madeForKids: boolean;
+}
+
+export interface MetadataStrategy {
+  titleTemplate: string;
+  descriptionTemplate: string;
+  tagsTemplate?: string;
+  language: string;
+  region: string;
+}
+
+export interface ThumbnailConfig {
+  mode: "auto" | "upload" | "template";
+  templateId?: string;
+}
+
+export interface ScheduleConfig {
+  timezone: string;
+  frequency: "cron" | "interval";
+  cronExpression?: string;
+  intervalMinutes?: number;
+  startAt?: string;
+  endAt?: string;
+}
+
+export interface ApprovalFlow {
+  enabled: boolean;
+  stages?: Array<"editor" | "reviewer" | "admin">;
+}
+
+export interface PipelineLimits {
+  maxVideosPerRun: number;
+  maxDailyUploads: number;
+  maxFileSizeMb: number;
+}
+
+export interface PipelineEvents {
+  webhooks?: {
+    onSuccess?: string;
+    onFailure?: string;
+  };
+  alerts?: {
+    slackWebhook?: string;
+    discordWebhook?: string;
+  };
+}
+interface GitSourceConfig {
+  repoUrl: string;
+  branch: string;
+  path?: string;
+}
+interface S3SourceConfig {
+  bucket: string;
+  prefix?: string;
+}
+interface DriveSourceConfig {
+  driveFolderId: string;
+}
+
+export interface PipelineStats {
+  runCount: number;
+  successCount: number;
+  failureCount: number;
+  lastRunAt?: string;
+  lastSuccessAt?: string;
+  lastFailureAt?: string;
+}

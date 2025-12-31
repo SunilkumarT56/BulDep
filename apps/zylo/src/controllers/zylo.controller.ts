@@ -1,5 +1,13 @@
 import type { Request, Response } from 'express';
-import type { AuthenticateUserRequest, DeployData } from '@zylo/types';
+import type {
+  AuthenticateUserRequest,
+  ContentSourceConfig,
+  DeployData,
+  MetadataStrategy,
+  ThumbnailConfig,
+  YouTubeConfig,
+  ScheduleConfig,
+} from '@zylo/types';
 import { pool } from '../config/postgresql.js';
 import axios from 'axios';
 import { enqueueEvent } from '../config/enque.js';
@@ -458,6 +466,7 @@ ORDER BY d.created_at DESC;
     });
   },
 );
+//  ----------------------------------------------------Youtube API------------------------------------------------------------------------//
 export const userProfileYT = AsyncHandler(
   async (req: AuthenticateUserRequest, res: Response): Promise<void> => {
     const { id: userId } = req.user as { id: string };
@@ -548,29 +557,92 @@ export const userProfileYT = AsyncHandler(
 );
 export const createNewPipeline = AsyncHandler(
   async (req: AuthenticateUserRequest, res: Response): Promise<void> => {
-    const { name, adminName } = req.body;
-    console.log(name, adminName);
-    const { id } = req.user as { id: string };
-    const response = await pool.query(
-      `
-      SELECT u.id,
-      oa.channel_id
-      FROM users u
-      LEFT JOIN oauth_accounts oa
-      ON oa.user_id = u.id
-      WHERE u.id = $1
-      LIMIT 1`,
-      [id],
-    );
-    const channelId = response.rows[0].channel_id;
-
+    const { id: adminId } = req.user as { id: string };
+    const {
+      pipelineName: name,
+      color,
+      pipelineType,
+      executionMode,
+      sourceType,
+      sourceConfig,
+      connectedChannelId,
+      defaultPrivacy,
+      category,
+      madeForKids,
+      titleTemplate,
+      descriptionTemplate,
+      tagsTemplate,
+      language,
+      region,
+      thumbnailMode,
+      thumbnailTemplateId,
+      timezone,
+      scheduleFrequency,
+      cronExpression,
+      intervalMinutes,
+      startAt,
+      endAt,
+    } = req.body;
     const { rows } = await pool.query(
       `
-    INSERT INTO pipelines (name, admin_id, admin_name ,youtube_channel_id)
-VALUES ($1,$2,$3, $4)
-
-`,
-      [name, id, adminName, channelId],
+      SELECT u.id ,
+      oa.id AS "oauthId"
+      FROM users u
+      JOIN oauth_accounts oa
+      ON oa.user_id = u.id
+      WHERE u.id = $1
+      AND oa.provider = 'google'
+      LIMIT 1
+      `,
+      [adminId],
+    );
+    const oauthId = rows[0]?.oauthId;
+    const ContentSourceConfig: ContentSourceConfig = {
+      type: sourceType,
+      config: sourceConfig,
+    };
+    const YouTubeConfig: YouTubeConfig = {
+      channelId: connectedChannelId,
+      oauthConnectionId: oauthId,
+      defaultPrivacy: defaultPrivacy,
+      categoryId: category,
+      madeForKids: madeForKids,
+    };
+    const MetadataStrategy: MetadataStrategy = {
+      titleTemplate,
+      descriptionTemplate,
+      tagsTemplate,
+      language,
+      region,
+    };
+    const ScheduleConfig: ScheduleConfig = {
+      timezone,
+      frequency: scheduleFrequency,
+      cronExpression,
+      intervalMinutes,
+      startAt,
+      endAt,
+    };
+    const ThumbnailConfig: ThumbnailConfig = {
+      templateId: thumbnailTemplateId,
+      mode: thumbnailMode,
+    };
+    await pool.query(
+      `
+      INSERT INTO pipelines (name , owner_user_id , pipeline_type , execution_mode ,content_source , youtube_config , metadata_strategy , thumbnail_config ,schedule_config,color)
+      VALUES ($1 , $2 , $3 , $4 , $5 , $6 , $7 , $8 , $9 , $10)`,
+      [
+        name,
+        adminId,
+        pipelineType,
+        executionMode,
+        ContentSourceConfig,
+        YouTubeConfig,
+        MetadataStrategy,
+        ThumbnailConfig,
+        ScheduleConfig,
+        color,
+      ],
     );
     res.json({
       status: true,
@@ -580,23 +652,8 @@ VALUES ($1,$2,$3, $4)
 );
 export const dashboardYTPipeline = AsyncHandler(
   async (req: AuthenticateUserRequest, res: Response): Promise<void> => {
-    const { id } = req.user as { id: string };
-    const { rows } = await pool.query(
-      `SELECT u.id,
-    p.admin_name,
-    p.name
-    FROM users u
-    JOIN pipelines p
-    ON p.admin_id = u.id
-    WHERE u.id = $1
-    `,
-      [id],
-    );
-    console.log(rows[0]);
-    const pipelines = rows;
     res.json({
       status: true,
-      pipelines,
     });
   },
 );

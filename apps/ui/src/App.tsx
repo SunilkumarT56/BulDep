@@ -12,6 +12,18 @@ import { Footer } from '@/components/Footer';
 import { DeploymentProgress } from '@/components/DeploymentProgress';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { YtPipelineDashboard } from '@/components/YtPipelineDashboard';
+import { ThemeProvider } from '@/components/ThemeProvider';
+
+interface UserData {
+  id: string;
+  email: string;
+  avatar_url?: string;
+  avatarUrl?: string;
+  avatar?: string;
+  github_name?: string;
+  name?: string;
+  username?: string;
+}
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -121,13 +133,13 @@ function App() {
     checkAuth();
   }, []);
 
-  const handleLogin = (userData?: any) => {
+  const handleLogin = (userData?: UserData) => {
     localStorage.setItem('isAuthenticated', 'true');
     setIsAuthenticated(true);
     if (userData) {
       setUserId(userData.id);
       setUserEmail(userData.email);
-      setUserAvatarUrl(userData.avatar_url || userData.avatarUrl || userData.avatar);
+      setUserAvatarUrl(userData.avatar_url || userData.avatarUrl || userData.avatar || null);
       setUserName(userData.github_name || userData.name || userData.username || null);
     }
   };
@@ -164,100 +176,109 @@ function App() {
 
   if (isAuthChecking) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center text-white">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-white border-t-transparent" />
+      <div className="min-h-screen bg-background flex items-center justify-center text-foreground">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black text-white relative">
-      <div className="fixed inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none"></div>
-      <Routes>
-        <Route
-          path="/login"
-          element={
-            !isAuthenticated ? (
-              <AuthPage onLogin={handleLogin} />
-            ) : (
-              <Navigate to="/dashboard" replace />
-            )
-          }
-        />
-        <Route
-          path="/signup"
-          element={
-            !isAuthenticated ? (
-              <SignupPage onLogin={handleLogin} />
-            ) : (
-              <Navigate to="/dashboard" replace />
-            )
-          }
-        />
-        <Route
-          path="/signup/connect"
-          element={!isAuthenticated ? <SignupStepTwo /> : <Navigate to="/dashboard" replace />}
-        />
-        <Route path="/verify" element={<VerifyPage />} />
-        <Route
-          path="/dashboard"
-          element={
-            isAuthenticated ? (
-              <div className="min-h-screen text-white selection:bg-white/20 selection:text-white font-sans antialiased bg-transparent">
-                <Header
-                  onLogout={handleLogout}
-                  userEmail={userEmail}
-                  userId={userId}
-                  userAvatarUrl={userAvatarUrl}
-                  userName={userName}
-                />
-                <main>
-                  <ErrorBoundary>
-                    <Dashboard />
-                  </ErrorBoundary>
-                </main>
-              </div>
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
-        />
-        <Route
-          path="/"
-          element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LandingPage />}
-        />
-        <Route
-          path="/new"
-          element={
-            isAuthenticated ? (
-              <div className="min-h-screen text-white selection:bg-white/20 selection:text-white font-sans antialiased bg-transparent">
-                <Header
-                  onLogout={handleLogout}
-                  userEmail={userEmail}
-                  userId={userId}
-                  userAvatarUrl={userAvatarUrl}
-                  userName={userName}
-                />
-                <main>
-                  <Hero />
-                </main>
-              </div>
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
-        />
-        <Route
-          path="/deploying"
-          element={isAuthenticated ? <DeploymentProgress /> : <Navigate to="/login" replace />}
-        />
-        <Route
-          path="/yt-pipeline-dashboard"
-          element={isAuthenticated ? <YtPipelineDashboard /> : <Navigate to="/login" replace />}
-        />
-      </Routes>
-      {shouldShowFooter && <Footer />}
-    </div>
+    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+      <div className="min-h-screen bg-background text-foreground relative transition-colors duration-300">
+        <Routes>
+          <Route
+            path="/login"
+            element={
+              !isAuthenticated ? (
+                <AuthPage onLogin={handleLogin} />
+              ) : (
+                <Navigate to="/yt-pipeline-dashboard" replace />
+              )
+            }
+          />
+          <Route
+            path="/signup"
+            element={
+              !isAuthenticated ? (
+                <SignupPage onLogin={handleLogin} />
+              ) : (
+                <Navigate to="/yt-pipeline-dashboard" replace />
+              )
+            }
+          />
+          <Route
+            path="/signup/connect"
+            element={
+              !isAuthenticated ? (
+                <SignupStepTwo />
+              ) : (
+                <Navigate to="/yt-pipeline-dashboard" replace />
+              )
+            }
+          />
+          <Route path="/verify" element={<VerifyPage />} />
+          <Route
+            path="/dashboard"
+            element={
+              isAuthenticated ? (
+                <div className="min-h-screen text-foreground selection:bg-primary/20 selection:text-primary font-sans antialiased bg-transparent">
+                  <Header
+                    onLogout={handleLogout}
+                    userEmail={userEmail}
+                    userId={userId}
+                    userAvatarUrl={userAvatarUrl}
+                    userName={userName}
+                  />
+                  <main>
+                    <ErrorBoundary>
+                      <Dashboard />
+                    </ErrorBoundary>
+                  </main>
+                </div>
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/"
+            element={
+              isAuthenticated ? <Navigate to="/yt-pipeline-dashboard" replace /> : <LandingPage />
+            }
+          />
+          <Route
+            path="/new"
+            element={
+              isAuthenticated ? (
+                <div className="min-h-screen text-foreground selection:bg-primary/20 selection:text-primary font-sans antialiased bg-transparent">
+                  <Header
+                    onLogout={handleLogout}
+                    userEmail={userEmail}
+                    userId={userId}
+                    userAvatarUrl={userAvatarUrl}
+                    userName={userName}
+                  />
+                  <main>
+                    <Hero />
+                  </main>
+                </div>
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/deploying"
+            element={isAuthenticated ? <DeploymentProgress /> : <Navigate to="/login" replace />}
+          />
+          <Route
+            path="/yt-pipeline-dashboard"
+            element={isAuthenticated ? <YtPipelineDashboard /> : <Navigate to="/login" replace />}
+          />
+        </Routes>
+        {shouldShowFooter && <Footer />}
+      </div>
+    </ThemeProvider>
   );
 }
 

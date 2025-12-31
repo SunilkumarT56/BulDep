@@ -15,6 +15,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from './ui/Button';
 import { Logo } from '@/components/Logo';
 import { useState, useRef, useEffect } from 'react';
+import { ThemeToggle } from './ThemeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CreatePipelineModal } from './CreatePipelineModal';
 
@@ -142,7 +143,20 @@ export function Header({ onLogout, userEmail, userAvatarUrl, userName }: HeaderP
                     </div>
 
                     <div className="py-1 border-t border-white/5 mt-1">
-                      {location.pathname === '/dashboard' ? (
+                      {location.pathname.includes('/yt-pipeline') ? (
+                        <button
+                          onClick={() => {
+                            setIsOpen(false);
+                            window.dispatchEvent(new CustomEvent('open-pipeline-wizard'));
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-400 hover:text-white hover:bg-white/5 rounded-md transition-colors text-left font-medium"
+                        >
+                          <div className="w-4 h-4 flex items-center justify-center">
+                            <Plus className="w-3 h-3 text-zinc-400" />
+                          </div>
+                          Create Pipeline
+                        </button>
+                      ) : (
                         <button
                           onClick={() => {
                             setIsOpen(false);
@@ -155,20 +169,6 @@ export function Header({ onLogout, userEmail, userAvatarUrl, userName }: HeaderP
                           </div>
                           Create Deployment
                         </button>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            console.log('Create Pipeline clicked');
-                            setIsOpen(false);
-                            setIsPipelineModalOpen(true);
-                          }}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-400 hover:text-white hover:bg-white/5 rounded-md transition-colors text-left font-medium"
-                        >
-                          <div className="w-4 h-4 flex items-center justify-center">
-                            <Plus className="w-3 h-3 text-zinc-400" />
-                          </div>
-                          Create Pipeline
-                        </button>
                       )}
                     </div>
                   </motion.div>
@@ -179,6 +179,7 @@ export function Header({ onLogout, userEmail, userAvatarUrl, userName }: HeaderP
 
           {/* Right Side: More Menu & Log Out */}
           <div className="flex items-center gap-4 sm:gap-6">
+            <ThemeToggle />
             {/* More Menu */}
             <div className="relative" ref={moreDropdownRef}>
               <button

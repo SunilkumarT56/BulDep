@@ -14,7 +14,7 @@ import {
   userProfileYT,
   createNewPipeline,
   dashboardYTPipeline,
-} from '../controllers/user.controller.js';
+} from '../controllers/zylo.controller.js';
 
 const router = express.Router();
 

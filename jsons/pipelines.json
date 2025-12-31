@@ -1,0 +1,47 @@
+[
+  {
+    "id": "195132dd-4622-47f1-a6e9-2512be1bc9d3",
+    "name": "sunilkumar",
+    "owner_user_id": "5d5211d2-d869-4017-b7d6-549c143a62bd",
+    "pipeline_type": "youtube_long",
+    "execution_mode": "scheduled",
+    "status": "idle",
+    "content_source": {
+      "type": "git",
+      "config": {
+        "path": "",
+        "branch": "main",
+        "repoUrl": "https://github.com/SunilkumarT56/zylo"
+      }
+    },
+    "youtube_config": {
+      "channelId": "UCtB8JEBqX88nRUB28FeVxJQ",
+      "categoryId": "People & Blogs",
+      "madeForKids": true,
+      "defaultPrivacy": "private",
+      "oauthConnectionId": "60c655cc-a227-45bf-bc15-dbd8e3338b19"
+    },
+    "metadata_strategy": {
+      "region": "US",
+      "language": "en",
+      "tagsTemplate": "#love",
+      "titleTemplate": " {{filename}}",
+      "descriptionTemplate": " {{links}}"
+    },
+    "thumbnail_config": { "mode": "auto" },
+    "schedule_config": {
+      "timezone": "Asia/Calcutta",
+      "frequency": "cron",
+      "cronExpression": "0 9 ** 1 - 5"
+    },
+    "approval_flow": { "enabled": false },
+    "limits": {
+      "maxFileSizeMb": 1024,
+      "maxDailyUploads": 10,
+      "maxVideosPerRun": 5
+    },
+    "created_at": "2025-12-31 21:16:47.250035+00",
+    "updated_at": "2025-12-31 21:16:47.250035+00",
+    "color": "#3B82F6"
+  }
+]
