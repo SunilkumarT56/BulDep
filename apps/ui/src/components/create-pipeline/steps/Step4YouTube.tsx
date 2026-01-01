@@ -145,7 +145,33 @@ export function Step4YouTube() {
             ))
           )}
 
-          <button className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-zinc-700 hover:border-zinc-500 hover:bg-white/5 transition-all text-left group">
+          <button
+            onClick={async () => {
+              try {
+                const token =
+                  localStorage.getItem('authToken') ||
+                  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI1ZDUyMTFkMi1kODY5LTQwMTctYjdkNi01NDljMTQzYTYyYmQiLCJpYXQiOjE3NjcwMjIyNjQsImV4cCI6MTc2NzYyNzA2NH0.EA5Pfu0vIkHI5SatbEbZ6HLw2y6QStoXOALz5cRJTiM';
+                const response = await fetch(
+                  'https://untolerative-len-rumblingly.ngrok-free.dev/auth/google/url',
+                  {
+                    headers: {
+                      Authorization: `Bearer ${token}`,
+                      'ngrok-skip-browser-warning': 'true',
+                    },
+                  },
+                );
+                if (response.ok) {
+                  const data = await response.json();
+                  if (data.url) {
+                    window.location.href = data.url;
+                  }
+                }
+              } catch (e) {
+                console.error('Failed to start OAuth', e);
+              }
+            }}
+            className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-zinc-700 hover:border-zinc-500 hover:bg-white/5 transition-all text-left group"
+          >
             <div className="w-10 h-10 rounded-full bg-zinc-800/50 flex items-center justify-center text-zinc-500 group-hover:text-zinc-300 transition-colors">
               <span className="text-lg">+</span>
             </div>

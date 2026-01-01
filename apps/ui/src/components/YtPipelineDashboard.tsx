@@ -1,32 +1,38 @@
 // ... imports
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  Bot,
+  Calendar,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Clock,
+  Cpu,
+  Loader2,
+  LogOut,
+  MoreHorizontal,
+  Play,
   Plus,
   Search,
-  Youtube,
-  Play,
   Settings,
-  Loader2,
-  Check,
   Shield,
-  Cpu,
-  Calendar,
-  Clock,
-  X,
-  FileText,
   Trash2,
-  Home,
-  Workflow,
-  Bot,
-  Database,
-  Sliders,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react'; // Added icons
+  User,
+  UserPlus,
+  Users,
+  Lock,
+  X,
+  Youtube,
+  Zap,
+  LayoutDashboard,
+  CreditCard,
+  Puzzle,
+  HelpCircle,
+} from 'lucide-react';
+import { Logo } from '@/components/Logo';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
-import { Header } from '@/components/Header';
 import { GlobalAnalyticsSnapshot } from './dashboard/GlobalAnalyticsSnapshot';
 import { PipelineWizardProvider, usePipelineWizard } from './create-pipeline/PipelineWizardContext';
 import { PipelineActionsMenu } from '@/components/PipelineActionsMenu';
@@ -38,11 +44,13 @@ interface Pipeline {
   admin_name: string;
   color?: string;
   _id?: string;
+  image_url?: string;
+  execution_mode?: 'manual' | 'scheduled';
 }
 
 interface PipelineDetails extends Pipeline {
   pipeline_type: string;
-  execution_mode: string;
+  execution_mode: 'manual' | 'scheduled';
   created_at: string;
   status: string;
   // Detailed fields
@@ -103,6 +111,16 @@ interface PipelineDetails extends Pipeline {
   };
 }
 
+interface ChannelDetails {
+  title: string;
+  email: string;
+  thumbnails?: {
+    default?: {
+      url: string;
+    };
+  };
+}
+
 function DashboardContent() {
   const navigate = useNavigate();
 
@@ -112,46 +130,15 @@ function DashboardContent() {
   const [channelData, setChannelData] = useState<ChannelData | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
+  const [dropdownPage, setDropdownPage] = useState(0);
 
   const [selectedPipeline, setSelectedPipeline] = useState<PipelineDetails | null>(null);
+  const [pipelineChannelDetails, setPipelineChannelDetails] = useState<ChannelDetails | null>(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
-  const [currentPage, setCurrentPage] = useState(0);
-  const ITEMS_PER_PAGE = 2;
 
-  // Sidebar resize logic
-  const [sidebarWidth, setSidebarWidth] = useState(240);
-  const [isResizing, setIsResizing] = useState(false);
-  const sidebarRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizing) return;
-      let newWidth = e.clientX;
-      // Constrain width
-      if (newWidth < 160) newWidth = 160;
-      if (newWidth > 480) newWidth = 480;
-      setSidebarWidth(newWidth);
-    };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-    };
-
-    if (isResizing) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    }
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isResizing]);
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsResizing(true);
-  };
+  const [isSidebarMenuOpen, setIsSidebarMenuOpen] = useState(false);
+  const [isPipelinesExpanded, setIsPipelinesExpanded] = useState(true);
+  const [sidebarPipelinePage, setSidebarPipelinePage] = useState(0);
 
   useEffect(() => {
     // ... permission check logic (same as before)
@@ -220,6 +207,7 @@ function DashboardContent() {
                   admin_name: 'Sunil Kumar',
                   color: '#EF4444',
                   _id: 'mock-1',
+                  image_url: 'https://github.com/shadcn.png',
                 },
               ]);
             }
@@ -247,7 +235,8 @@ function DashboardContent() {
 
   const handlePipelineClick = async (pipeline: Pipeline) => {
     setIsLoadingDetails(true);
-    setSelectedPipeline(null); // Clear previous selection while loading? Or keep it? Let's clear to show loading.
+    setSelectedPipeline(null);
+    setPipelineChannelDetails(null);
 
     try {
       const token =
@@ -273,6 +262,8 @@ function DashboardContent() {
           // Mapping new structure to existing state shape for compatibility
           setSelectedPipeline({
             ...pipelineData.header,
+            ...pipelineData.header,
+            image_url: pipelineData.header.image,
             // Map keys if needed, though most match (name, status, color).
             // PipelineType from header is camelCase 'pipelineType' vs 'pipeline_type' in old state?
             // The user example shows `pipelineType`. Old code used `pipeline_type`.
@@ -285,6 +276,30 @@ function DashboardContent() {
             adminLimits: pipelineData.adminLimits,
             metadata: pipelineData.metadata,
           });
+
+          // Fetch Pipeline Specific Channel Info
+          try {
+            const channelResponse = await fetch(
+              'https://untolerative-len-rumblingly.ngrok-free.dev/user/yt-pipeline/me',
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'ngrok-skip-browser-warning': 'true',
+                },
+              },
+            );
+            if (channelResponse.ok) {
+              const data = await channelResponse.json();
+              if (data.authenticated && data.responsePayload && data.responsePayload.channel) {
+                setPipelineChannelDetails({
+                  ...data.responsePayload.channel,
+                  email: data.responsePayload.email,
+                });
+              }
+            }
+          } catch (err) {
+            console.error('Failed to fetch pipeline channel details', err);
+          }
         } else if (data.pipeline) {
           setSelectedPipeline(data.pipeline);
         }
@@ -335,143 +350,333 @@ function DashboardContent() {
 
   return (
     <div className="h-screen overflow-hidden bg-[#191919] text-[#D4D4D4] font-sans flex flex-col">
-      <Header
-        onLogout={handleLogout}
-        userEmail={userEmail}
-        userAvatarUrl={channelData?.thumbnails?.default?.url}
-        userName={channelData?.title}
-      />
-
       <CreatePipelineWizard />
 
-      <div className="flex-1 flex max-w-full w-full pt-16">
+      <div className="flex-1 flex max-w-full w-full">
         {/* Static Sidebar */}
-        <div className="w-64 border-r border-[#2F2F2F] bg-[#191919] flex flex-col h-[calc(100vh-64px)] hidden md:flex shrink-0">
-          {/* Notion-style Header / Channel Info */}
-          <div className="p-2">
-            {channelData ? (
-              <div className="flex items-center gap-2 p-2 rounded-md hover:bg-[#2F2F2F] cursor-pointer transition-colors">
-                <div className="w-5 h-5 rounded overflow-hidden shrink-0">
-                  <img
-                    src={channelData.thumbnails.default.url}
-                    alt="CH"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="truncate text-sm font-medium text-[#E3E3E3] flex-1">
-                  {channelData.title}
-                </div>
-                {/* Optional Chevrons or Settings icon could go here on hover */}
+        <div className="w-64 border-r border-[#2F2F2F] bg-[#191919] flex flex-col h-full hidden md:flex shrink-0 font-sans">
+          {/* Workspace Switcher / User Profile Header */}
+          <div
+            className="h-12 flex items-center px-3 hover:bg-[#2F2F2F] cursor-pointer transition-colors relative m-2 rounded-md group"
+            onClick={() => setIsSidebarMenuOpen(!isSidebarMenuOpen)}
+          >
+            <div className="w-5 h-5 rounded overflow-hidden mr-2 bg-black flex items-center justify-center shrink-0 border border-[#333]">
+              <Logo className="w-3 h-3 text-white" />
+            </div>
+            <span className="text-sm font-medium text-[#E3E3E3] truncate flex-1 leading-none">
+              {channelData?.title || "Sunil's Workspace"}
+            </span>
+            <div className="p-0.5 rounded hover:bg-[#3F3F3F] text-[#999]">
+              <ChevronDown className="w-3.5 h-3.5" />
+            </div>
+
+            {/* Dropdown Menu */}
+            <AnimatePresence>
+              {isSidebarMenuOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -5, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -5, scale: 0.95 }}
+                  transition={{ duration: 0.1 }}
+                  className="absolute top-10 left-0 w-72 bg-[#252525] border border-[#333] rounded-xl shadow-2xl overflow-hidden z-50 flex flex-col"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Current Workspace/User Header */}
+                  <div className="p-3 pb-2">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-8 h-8 rounded bg-black border border-[#333] flex items-center justify-center text-[#E3E3E3] overflow-hidden">
+                        {channelData?.thumbnails?.default?.url ? (
+                          <img
+                            src={channelData.thumbnails.default.url}
+                            alt="Channel Logo"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <Logo className="w-4 h-4 text-white" />
+                        )}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium text-[#E3E3E3]">
+                          {channelData?.title || 'Zylo Workspace'}
+                        </span>
+                        <span className="text-[11px] text-[#999]">Free Plan · 1 member</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="flex-1 flex items-center justify-center gap-2 h-7 rounded border border-[#333] hover:bg-[#2F2F2F] cursor-pointer transition-colors text-xs text-[#E3E3E3]">
+                        <Settings className="w-3.5 h-3.5" />
+                        Settings
+                      </div>
+                      <div className="flex-1 flex items-center justify-center gap-2 h-7 rounded border border-[#333] hover:bg-[#2F2F2F] cursor-pointer transition-colors text-xs text-[#E3E3E3]">
+                        <UserPlus className="w-3.5 h-3.5" />
+                        Invite members
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Account List */}
+                  <div className="flex-1 overflow-y-auto max-h-[300px] border-t border-[#333]">
+                    <div className="px-3 py-2">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] font-medium text-[#777]">{userEmail}</span>
+                          <Youtube className="w-3 h-3 text-red-500" />
+                        </div>
+                        <MoreHorizontal className="w-3 h-3 text-[#777]" />
+                      </div>
+
+                      {/* Pipelines List as Workspaces */}
+                      <div className="space-y-0.5">
+                        {pipelines
+                          .slice(dropdownPage * 4, (dropdownPage + 1) * 4)
+                          .map((pipeline) => (
+                            <div
+                              key={pipeline._id}
+                              className="flex items-center justify-between gap-2 px-2 py-1.5 rounded hover:bg-[#2F2F2F] cursor-pointer transition-colors group"
+                              onClick={() => {
+                                handlePipelineClick(pipeline);
+                                setIsSidebarMenuOpen(false);
+                              }}
+                            >
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                {pipeline.image_url ? (
+                                  <div className="w-6 h-6 rounded bg-[#333] shrink-0 border border-[#3F3F3F] overflow-hidden">
+                                    <img
+                                      src={pipeline.image_url}
+                                      alt={pipeline.name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="w-6 h-6 rounded bg-[#333] flex items-center justify-center text-[10px] text-[#999] group-hover:text-[#E3E3E3] group-hover:bg-[#3F3F3F] transition-colors shrink-0">
+                                    {pipeline.name[0].toUpperCase()}
+                                  </div>
+                                )}
+                                <span
+                                  className={`text-sm truncate ${
+                                    selectedPipeline?.name === pipeline.name
+                                      ? 'text-[#E3E3E3]'
+                                      : 'text-[#999] group-hover:text-[#E3E3E3]'
+                                  }`}
+                                >
+                                  {pipeline.name}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                {selectedPipeline?.name === pipeline.name && (
+                                  <Check className="w-3.5 h-3.5 text-[#E3E3E3]" />
+                                )}
+                                <div
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                                >
+                                  {/* Scale down to fit compact row */}
+                                  <div className="scale-75 origin-center">
+                                    <PipelineActionsMenu pipeline={pipeline} />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+
+                        {/* Pagination Controls */}
+                        {pipelines.length > 4 && (
+                          <div className="flex items-center justify-between px-2 pt-1 pb-1">
+                            {dropdownPage > 0 ? (
+                              <span
+                                className="text-[10px] text-[#777] hover:text-[#E3E3E3] cursor-pointer select-none"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDropdownPage((p) => p - 1);
+                                }}
+                              >
+                                Prev
+                              </span>
+                            ) : (
+                              <div />
+                            )}
+
+                            {pipelines.length > (dropdownPage + 1) * 4 && (
+                              <span
+                                className="text-[10px] text-blue-500 hover:text-blue-400 cursor-pointer font-medium select-none"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDropdownPage((p) => p + 1);
+                                }}
+                              >
+                                Next
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Create New Pipeline */}
+                        <div
+                          onClick={() => {
+                            setIsSidebarMenuOpen(false);
+                            setIsOpen(true);
+                          }}
+                          className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#2F2F2F] cursor-pointer transition-colors text-[#999] hover:text-[#E3E3E3] mt-1"
+                        >
+                          <div className="w-6 h-6 flex items-center justify-center">
+                            <Plus className="w-4 h-4" />
+                          </div>
+                          <span className="text-sm">New pipeline</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Footer */}
+                  <div className="border-t border-[#333] p-1">
+                    <div
+                      onClick={handleLogout}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded hover:bg-[#2F2F2F] text-[#999] hover:text-[#E3E3E3] cursor-pointer transition-colors"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span className="text-xs">Log out all accounts</span>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Main Navigation */}
+          {/* Main Navigation */}
+          <div className="px-2 mb-4 space-y-1 overflow-y-auto flex-1 custom-scrollbar">
+            <div className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-[#2F2F2F] text-[#999] hover:text-[#E3E3E3] cursor-pointer transition-colors group mb-6">
+              <LayoutDashboard className="w-4 h-4" />
+              <span className="text-sm font-medium">Overview</span>
+            </div>
+
+            <div className="space-y-1 mb-6">
+              <div className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-[#2F2F2F] text-[#999] hover:text-[#E3E3E3] cursor-pointer transition-colors group">
+                <Settings className="w-4 h-4" />
+                <span className="text-sm font-medium">Settings</span>
               </div>
-            ) : (
-              <div className="p-2 text-sm text-[#9B9A97]">Loading...</div>
+              <div className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-[#2F2F2F] text-[#999] hover:text-[#E3E3E3] cursor-pointer transition-colors group">
+                <Puzzle className="w-4 h-4" />
+                <span className="text-sm font-medium">Integrations</span>
+              </div>
+              <div className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-[#2F2F2F] text-[#999] hover:text-[#E3E3E3] cursor-pointer transition-colors group">
+                <CreditCard className="w-4 h-4" />
+                <span className="text-sm font-medium">Usage & Billing</span>
+              </div>
+              <div className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-[#2F2F2F] text-[#999] hover:text-[#E3E3E3] cursor-pointer transition-colors group">
+                <Zap className="w-4 h-4" />
+                <span className="text-sm font-medium">Zylo MCP</span>
+              </div>
+            </div>
+
+            <div
+              className="mb-2 px-2 flex items-center justify-between cursor-pointer group"
+              onClick={() => setIsPipelinesExpanded(!isPipelinesExpanded)}
+            >
+              <span className="text-xs font-semibold text-[#525252] uppercase tracking-wider group-hover:text-[#D4D4D4] transition-colors">
+                Pipelines
+              </span>
+              {isPipelinesExpanded ? (
+                <ChevronDown className="w-3 h-3 text-[#525252] group-hover:text-[#D4D4D4] transition-colors" />
+              ) : (
+                <ChevronRight className="w-3 h-3 text-[#525252] group-hover:text-[#D4D4D4] transition-colors" />
+              )}
+            </div>
+
+            {isPipelinesExpanded && (
+              <div className="space-y-0.5 mb-6">
+                {pipelines
+                  .slice(sidebarPipelinePage * 3, (sidebarPipelinePage + 1) * 3)
+                  .map((pipeline) => (
+                    <div
+                      key={pipeline._id || pipeline.name}
+                      onClick={() => handlePipelineClick(pipeline)}
+                      className={`flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors group relative ${
+                        selectedPipeline?.name === pipeline.name
+                          ? 'bg-[#2F2F2F] text-[#E3E3E3]'
+                          : 'text-[#999] hover:bg-[#2F2F2F] hover:text-[#E3E3E3]'
+                      }`}
+                    >
+                      <div className="truncate text-sm font-medium flex-1">{pipeline.name}</div>
+                      {/* 3-dots menu */}
+                      <div
+                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <PipelineActionsMenu pipeline={pipeline} />
+                      </div>
+                    </div>
+                  ))}
+                {pipelines.length === 0 && (
+                  <div className="px-2 py-1 text-xs text-[#525252] italic">No pipelines found</div>
+                )}
+
+                {/* Pagination Controls */}
+                {pipelines.length > 3 && (
+                  <div className="flex items-center justify-between px-2 pt-1">
+                    {sidebarPipelinePage > 0 ? (
+                      <span
+                        className="text-[10px] text-[#777] hover:text-[#E3E3E3] cursor-pointer select-none"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSidebarPipelinePage((p) => p - 1);
+                        }}
+                      >
+                        Prev
+                      </span>
+                    ) : (
+                      <div />
+                    )}
+
+                    {pipelines.length > (sidebarPipelinePage + 1) * 3 && (
+                      <span
+                        className="text-[10px] text-blue-500 hover:text-blue-400 cursor-pointer font-medium select-none"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSidebarPipelinePage((p) => p + 1);
+                        }}
+                      >
+                        Next
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
-          {/* Main Navigation Items (Search, Home) */}
-          <div className="px-2 pb-2 space-y-0.5">
-            <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-md hover:bg-[#2F2F2F] text-[#9B9A97] hover:text-[#D4D4D4] cursor-pointer transition-colors text-sm">
-              <Search className="w-4 h-4" />
-              <span>Search</span>
+          {/* Bottom Fixed Navigation */}
+          <div className="px-2 mb-14 space-y-1 pt-2 border-t border-[#2F2F2F]">
+            {/* Profile & Team Group */}
+
+            {/* Profile & Team Group */}
+            <div className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-[#2F2F2F] text-[#999] hover:text-[#E3E3E3] cursor-pointer transition-colors group">
+              <User className="w-4 h-4" />
+              <span className="text-sm font-medium">Profile</span>
             </div>
-            <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-md bg-[#252525] text-[#E3E3E3] cursor-pointer transition-colors text-sm font-medium">
-              <Home className="w-4 h-4" />{' '}
-              {/* Mocking Home icon using Check for now or generic icon if Home not imported yet */}
-              <span>Overview</span>
+            <div className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-[#2F2F2F] text-[#999] hover:text-[#E3E3E3] cursor-pointer transition-colors group">
+              <Users className="w-4 h-4" />
+              <span className="text-sm font-medium">Team</span>
             </div>
-            <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-md hover:bg-[#2F2F2F] text-[#9B9A97] hover:text-[#D4D4D4] cursor-pointer transition-colors text-sm">
-              <Settings className="w-4 h-4" />
-              <span>Settings</span>
+            <div className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-[#2F2F2F] text-[#999] hover:text-[#E3E3E3] cursor-pointer transition-colors group">
+              <Lock className="w-4 h-4" />
+              <span className="text-sm font-medium">Security</span>
             </div>
-            <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-md hover:bg-[#2F2F2F] text-[#9B9A97] hover:text-[#D4D4D4] cursor-pointer transition-colors text-sm">
-              <Database className="w-4 h-4" />
-              <span>Zylo MCP</span>
+            <div className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-[#2F2F2F] text-[#999] hover:text-[#E3E3E3] cursor-pointer transition-colors group">
+              <Trash2 className="w-4 h-4" />
+              <span className="text-sm font-medium">Trash</span>
             </div>
             <div
-              onClick={() => setIsOpen(true)}
-              className="flex items-center gap-2.5 px-3 py-1.5 rounded-md hover:bg-[#2F2F2F] text-[#9B9A97] hover:text-[#D4D4D4] cursor-pointer transition-colors text-sm"
+              className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-[#2F2F2F] text-[#999] hover:text-[#E3E3E3] cursor-pointer transition-colors group"
+              onClick={handleLogout}
             >
-              <Plus className="w-4 h-4" />
-              <span>New Pipeline</span>
+              <LogOut className="w-4 h-4" />
+              <span className="text-sm font-medium">Logout</span>
             </div>
           </div>
 
-          {/* Scrollable Content (Pipelines) */}
-          <div className="flex-1 overflow-y-auto px-2 py-2 mt-2 custom-scrollbar">
-            {/* Section Header */}
-            <div className="group flex items-center justify-between px-3 py-1 mb-1 text-xs font-semibold text-[#666] uppercase tracking-wider hover:text-[#999] transition-colors cursor-pointer">
-              <span>Pipelines</span>
-              <Plus
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsOpen(true);
-                }}
-                className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 hover:text-white transition-opacity"
-              />
-            </div>
-
-            {/* Pipeline List */}
-            <div className="space-y-0.5">
-              {pipelines.length === 0 && (
-                <div className="px-3 py-2 text-sm text-[#525252] italic">No pipelines found</div>
-              )}
-              {pipelines
-                .slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE)
-                .map((pipeline) => (
-                  <div
-                    key={pipeline._id || pipeline.name}
-                    onClick={() => handlePipelineClick(pipeline)}
-                    className={`group flex items-center justify-between gap-2 px-3 py-1.5 rounded-md text-sm cursor-pointer transition-colors relative ${
-                      selectedPipeline?.name === pipeline.name
-                        ? 'bg-[#2F2F2F] text-[#E3E3E3]'
-                        : 'text-[#9B9A97] hover:bg-[#252525] hover:text-[#D4D4D4]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                      {/* Small Icon */}
-                      <div className="text-[#9B9A97]">
-                        <Workflow className="w-4 h-4" />
-                      </div>
-                      <span className="truncate">{pipeline.name}</span>
-                    </div>
-                    <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <PipelineActionsMenu />
-                    </div>
-                  </div>
-                ))}
-              {/* Pagination Controls */}
-              {pipelines.length > ITEMS_PER_PAGE && (
-                <div className="flex items-center justify-between px-1 mt-2">
-                  <button
-                    onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-                    disabled={currentPage === 0}
-                    className={`text-[#9B9A97] hover:text-[#D4D4D4] transition-colors p-1 rounded-md hover:bg-[#252525] ${
-                      currentPage === 0 ? 'opacity-30 cursor-not-allowed hover:bg-transparent' : ''
-                    }`}
-                  >
-                    <ChevronLeft className="w-3.5 h-3.5" />
-                  </button>
-                  <span className="text-[10px] text-[#525252]">
-                    {currentPage + 1} / {Math.ceil(pipelines.length / ITEMS_PER_PAGE)}
-                  </span>
-                  <button
-                    onClick={() =>
-                      setCurrentPage((p) =>
-                        (p + 1) * ITEMS_PER_PAGE < pipelines.length ? p + 1 : p,
-                      )
-                    }
-                    disabled={(currentPage + 1) * ITEMS_PER_PAGE >= pipelines.length}
-                    className={`text-[#9B9A97] hover:text-[#D4D4D4] transition-colors p-1 rounded-md hover:bg-[#252525] ${
-                      (currentPage + 1) * ITEMS_PER_PAGE >= pipelines.length
-                        ? 'opacity-30 cursor-not-allowed hover:bg-transparent'
-                        : ''
-                    }`}
-                  >
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
-            </div>
+          <div className="px-5 mb-5">
+            <HelpCircle className="w-4 h-4 text-[#525252] hover:text-[#E3E3E3] cursor-pointer transition-colors" />
           </div>
         </div>
 
@@ -505,17 +710,27 @@ function DashboardContent() {
 
                   <div className="flex items-start justify-between relative z-10">
                     <div className="flex items-center gap-6">
-                      <div
-                        className="p-3 rounded-xl bg-[#252525] border border-[#2F2F2F]"
-                        style={{ color: selectedPipeline.color || 'white' }}
-                      >
-                        <Youtube className="w-8 h-8" />
-                      </div>
+                      {selectedPipeline.image_url ? (
+                        <div className="w-16 h-16 rounded-xl overflow-hidden border border-[#2F2F2F]">
+                          <img
+                            src={selectedPipeline.image_url}
+                            alt={selectedPipeline.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div
+                          className="p-3 rounded-xl bg-[#252525] border border-[#2F2F2F]"
+                          style={{ color: selectedPipeline.color || 'white' }}
+                        >
+                          <Youtube className="w-8 h-8" />
+                        </div>
+                      )}
                       <div>
                         <h1 className="text-3xl font-bold text-white tracking-tight">
                           {selectedPipeline.name}
                         </h1>
-                        <div className="flex items-center gap-4 text-[#9B9A97] mt-2 text-sm">
+                        <div className="flex items-center gap-2 text-[#9B9A97] mt-2 text-sm">
                           <span className="flex items-center gap-2 px-2 py-0.5 rounded-full bg-[#252525] border border-[#2F2F2F]">
                             <div
                               className={`w-2 h-2 rounded-full ${
@@ -527,23 +742,35 @@ function DashboardContent() {
                             />
                             {selectedPipeline.status || 'Draft'}
                           </span>
-                          <span>•</span>
-                          <span>
+                          <span className="px-2 py-0.5 rounded-full bg-[#252525] border border-[#2F2F2F]">
                             {selectedPipeline.pipeline_type?.replace('_', ' ') || 'YouTube'}
                           </span>
                           {selectedPipeline.execution_mode && (
-                            <>
-                              <span>•</span>
-                              <span>{selectedPipeline.execution_mode}</span>
-                            </>
+                            <span className="px-2 py-0.5 rounded-full bg-[#252525] border border-[#2F2F2F]">
+                              {selectedPipeline.execution_mode}
+                            </span>
                           )}
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-col items-end gap-3">
                       <Button className="h-10 px-6 bg-white text-black hover:bg-zinc-200 font-medium border border-transparent">
                         <Play className="w-4 h-4 mr-2 fill-current" /> Run Pipeline
                       </Button>
+                      {pipelineChannelDetails && (
+                        <div className="flex items-center gap-2 text-xs text-[#9B9A97]">
+                          {pipelineChannelDetails.thumbnails?.default?.url && (
+                            <img
+                              src={pipelineChannelDetails.thumbnails.default.url}
+                              alt="Channel"
+                              className="w-4 h-4 rounded-full"
+                            />
+                          )}
+                          <span>{pipelineChannelDetails.title}</span>
+                          <span className="text-[#333]">|</span>
+                          <span>{pipelineChannelDetails.email}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

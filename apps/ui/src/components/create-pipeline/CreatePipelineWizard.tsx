@@ -3,6 +3,7 @@ import { X, ChevronRight, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { usePipelineWizard } from './PipelineWizardContext';
 import { Step1Identity } from './steps/Step1Identity';
+import { StepAvatar } from './steps/StepAvatar';
 import { Step2Type } from './steps/Step2Type';
 import { Step3Source } from './steps/Step3Source';
 import { Step4YouTube } from './steps/Step4YouTube';
@@ -30,6 +31,8 @@ export function CreatePipelineWizard() {
         return <Step5Metadata />;
       case 'scheduling':
         return <Step6Scheduling />;
+      case 'avatar':
+        return <StepAvatar />;
       case 'review':
         return <Step7Review />;
       default:
@@ -44,6 +47,7 @@ export function CreatePipelineWizard() {
     { id: 'youtube', label: 'Channels' },
     { id: 'metadata', label: 'Metadata' },
     { id: 'scheduling', label: 'Schedule' },
+    { id: 'avatar', label: 'Avatar' },
     { id: 'review', label: 'Review' },
   ];
 

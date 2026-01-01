@@ -15,7 +15,9 @@ import {
   createNewPipeline,
   userPipelines,
   getPipelineById,
+  editConfig,
 } from '../controllers/zylo.controller.js';
+import { upload } from '../middleware/upload.js';
 
 const router = express.Router();
 
@@ -30,7 +32,8 @@ router.post('/new/inner-dir', authMiddleware, repoInnerDirectoriesController);
 router.post('/deploy-dashboard', authMiddleware, deployDashboard);
 router.get('/dashboard', authMiddleware, projectDashboard);
 router.get('/yt-pipeline/me', authMiddleware, userProfileYT);
-router.post('/create/pipeline', authMiddleware, createNewPipeline);
+router.post('/create/pipeline', authMiddleware, upload.single('image'), createNewPipeline);
 router.get('/pipelines', authMiddleware, userPipelines);
 router.post('/pipelines/:name', authMiddleware, getPipelineById);
+router.post('/update-pipelines/:name', authMiddleware, upload.single('image'), editConfig);
 export default router;

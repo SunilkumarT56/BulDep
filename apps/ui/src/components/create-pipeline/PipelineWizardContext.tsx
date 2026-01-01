@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { type PipelineData, INITIAL_DATA, type WizardStep, type ChannelData } from './types';
 
-interface PipelineWizardContextType {
+export interface PipelineWizardContextType {
   data: PipelineData;
   currentStep: WizardStep;
   setData: (data: Partial<PipelineData>) => void;
@@ -22,7 +22,9 @@ interface PipelineWizardContextType {
   setIsSubmissionSuccess: (success: boolean) => void;
 }
 
-const PipelineWizardContext = createContext<PipelineWizardContextType | undefined>(undefined);
+export const PipelineWizardContext = createContext<PipelineWizardContextType | undefined>(
+  undefined,
+);
 
 const STEPS: WizardStep[] = [
   'identity',
@@ -31,6 +33,7 @@ const STEPS: WizardStep[] = [
   'youtube',
   'metadata',
   'scheduling',
+  'avatar',
   'review',
 ];
 

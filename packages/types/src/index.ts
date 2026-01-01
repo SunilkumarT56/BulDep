@@ -195,3 +195,8 @@ export interface PipelineStats {
   lastSuccessAt?: string;
   lastFailureAt?: string;
 }
+export type ConfigHandler = (
+  pipelineId: string,
+  userId: string,
+  value: any
+) => Promise<void>;

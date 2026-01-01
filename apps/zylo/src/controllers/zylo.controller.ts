@@ -7,6 +7,7 @@ import type {
   ThumbnailConfig,
   YouTubeConfig,
   ScheduleConfig,
+  ConfigHandler,
 } from '@zylo/types';
 import { pool } from '../config/postgresql.js';
 import axios from 'axios';
@@ -20,6 +21,7 @@ import {
 import { ERROR_CODES } from '@zylo/errors';
 import { AsyncHandler } from '../utils/asyncHandler.js';
 import { fetchMyChannelDetails, getValidGoogleAccessToken } from '../services/youtube.service.js';
+import { uploadImageToS3 } from '../services/uploadToS3.js';
 
 export const userProfile = async (req: AuthenticateUserRequest, res: Response): Promise<void> => {
   const { id } = req.user as { id: string };
@@ -583,6 +585,12 @@ export const createNewPipeline = AsyncHandler(
       startAt,
       endAt,
     } = req.body;
+    const image = req.file;
+    if (!image) {
+      throw new Error(ERROR_CODES.IMAGE_REQUIRED);
+    }
+    const imageUrl = await uploadImageToS3(image, adminId);
+
     const { rows } = await pool.query(
       `
       SELECT u.id ,
@@ -643,8 +651,8 @@ export const createNewPipeline = AsyncHandler(
     };
     await pool.query(
       `
-      INSERT INTO pipelines (name , owner_user_id , pipeline_type , execution_mode ,content_source , youtube_config , metadata_strategy , thumbnail_config ,schedule_config,color)
-      VALUES ($1 , $2 , $3 , $4 , $5 , $6 , $7 , $8 , $9 , $10 )`,
+      INSERT INTO pipelines (name , owner_user_id , pipeline_type , execution_mode ,content_source , youtube_config , metadata_strategy , thumbnail_config ,schedule_config,color , image_url)
+      VALUES ($1 , $2 , $3 , $4 , $5 , $6 , $7 , $8 , $9 , $10 , $11)`,
       [
         name,
         adminId,
@@ -656,6 +664,7 @@ export const createNewPipeline = AsyncHandler(
         ThumbnailConfig,
         ScheduleConfig,
         color,
+        imageUrl.url,
       ],
     );
     res.json({
@@ -686,10 +695,11 @@ export const getPipelineById = AsyncHandler(
   async (req: AuthenticateUserRequest, res: Response): Promise<void> => {
     const { id: userId } = req.user as { id: string };
     const { name } = req.params as { name: string };
-    const { rows} = await pool.query(
+    const { rows } = await pool.query(
       `
     SELECT id,
   name,
+  image_url,
   owner_user_id,
   pipeline_type,
   execution_mode,
@@ -716,6 +726,7 @@ export const getPipelineById = AsyncHandler(
         pipelineType: row.pipeline_type,
         executionMode: row.execution_mode,
         color: row.color,
+        image: row.image_url,
       },
 
       readiness: {
@@ -787,5 +798,117 @@ export const getPipelineById = AsyncHandler(
       pipeline: orderedPipelineResponse,
     });
     return new Promise(() => {});
+  },
+);
+export const editConfig = AsyncHandler(
+  async (req: AuthenticateUserRequest, res: Response): Promise<void> => {
+    const { id: adminId } = req.user as { id: string };
+    const {
+      pipelineName: name,
+      color,
+      pipelineType,
+      executionMode,
+      sourceType,
+      sourceConfig,
+      connectedChannelId,
+      defaultPrivacy,
+      category,
+      madeForKids,
+      titleTemplate,
+      descriptionTemplate,
+      tagsTemplate,
+      language,
+      region,
+      thumbnailMode,
+      thumbnailTemplateId,
+      timezone,
+      scheduleFrequency,
+      cronExpression,
+      intervalMinutes,
+      startAt,
+      endAt,
+    } = req.body;
+    const image: any = req.file;
+    const { rows } = await pool.query(
+      `
+      SELECT u.id ,
+      oa.id AS "oauthId"
+      FROM users u
+      JOIN oauth_accounts oa
+      ON oa.user_id = u.id
+      WHERE u.id = $1
+      AND oa.provider = 'google'
+      LIMIT 1
+      `,
+      [adminId],
+    );
+    let imageUrl: any = '';
+    const oauthId = rows[0]?.oauthId;
+    if (image) {
+      imageUrl = await uploadImageToS3(image, adminId);
+    }
+    const ContentSourceConfig: ContentSourceConfig = {
+      type: sourceType,
+      config: sourceConfig,
+    };
+    const YouTubeConfig: YouTubeConfig = {
+      channelId: connectedChannelId,
+      oauthConnectionId: oauthId,
+      defaultPrivacy: defaultPrivacy,
+      categoryId: category,
+      madeForKids: madeForKids,
+    };
+    const MetadataStrategy: MetadataStrategy = {
+      titleTemplate,
+      descriptionTemplate,
+      tagsTemplate,
+      language,
+      region,
+    };
+    const ScheduleConfig: ScheduleConfig = {
+      timezone,
+      frequency: scheduleFrequency,
+      cronExpression,
+      intervalMinutes,
+      startAt,
+      endAt,
+    };
+    const ThumbnailConfig: ThumbnailConfig = {
+      templateId: thumbnailTemplateId,
+      mode: thumbnailMode,
+    };
+    await pool.query(
+      `
+      UPDATE pipelines
+      SET
+        pipeline_type = $1,
+        execution_mode = $2,
+        content_source = $3,
+        youtube_config = $4,
+        metadata_strategy = $5,
+        thumbnail_config = $6,
+        schedule_config = $7,
+        color = $8,
+        image_url = $9,
+        updated_at = NOW()
+      WHERE name = $10
+      `,
+      [
+        pipelineType,
+        executionMode,
+        ContentSourceConfig,
+        YouTubeConfig,
+        MetadataStrategy,
+        ThumbnailConfig,
+        ScheduleConfig,
+        color,
+        imageUrl.url,
+        name,
+      ],
+    );
+    res.json({
+      status: true,
+      message: 'Configuration updated successfully',
+    });
   },
 );

@@ -71,6 +71,8 @@ export interface PipelineData {
   startDate?: string;
   endDate?: string;
   color: string;
+  userAvatar?: string;
+  userAvatarFile?: File;
 }
 
 export const INITIAL_DATA: PipelineData = {
@@ -95,6 +97,7 @@ export const INITIAL_DATA: PipelineData = {
 
 export type WizardStep =
   | 'identity'
+  | 'avatar'
   | 'type'
   | 'source'
   | 'youtube'

@@ -58,42 +58,56 @@ export function Step7Review() {
           break;
       }
 
-      const payload = {
-        pipelineName: data.pipelineName,
-        color: data.color || '#3B82F6',
-        pipelineType: data.pipelineType,
-        executionMode: data.executionMode,
-        sourceType: data.sourceType,
-        sourceConfig,
-        connectedChannelId: data.connectedChannelId,
-        defaultPrivacy: data.defaultPrivacy,
-        category: data.category,
-        madeForKids: data.madeForKids,
-        titleTemplate: data.titleTemplate,
-        descriptionTemplate: data.descriptionTemplate,
-        tagsTemplate: data.tagsTemplate,
-        language: data.language,
-        region: data.region,
-        thumbnailMode: data.thumbnailMode,
-        thumbnailTemplateId: data.thumbnailTemplateId,
-        timezone: data.timezone,
-        scheduleFrequency: data.scheduleFrequency,
-        cronExpression: data.cronExpression,
-        intervalMinutes: data.intervalMinutes,
-        startAt: data.startDate,
-        endAt: data.endDate,
-      };
+      const formData = new FormData();
+      formData.append('pipelineName', data.pipelineName);
+      formData.append('color', data.color || '#3B82F6');
+      formData.append('pipelineType', data.pipelineType);
+      formData.append('executionMode', data.executionMode);
+      formData.append('sourceType', data.sourceType);
+      formData.append('sourceConfig', JSON.stringify(sourceConfig));
+      formData.append('connectedChannelId', data.connectedChannelId);
+      formData.append('defaultPrivacy', data.defaultPrivacy);
+      formData.append('category', data.category);
+      formData.append('madeForKids', String(data.madeForKids));
+      formData.append('titleTemplate', data.titleTemplate);
+      formData.append('descriptionTemplate', data.descriptionTemplate);
+      formData.append('tagsTemplate', data.tagsTemplate);
+      formData.append('language', data.language);
+      formData.append('region', data.region);
+      formData.append('thumbnailMode', data.thumbnailMode);
+      if (data.thumbnailTemplateId) {
+        formData.append('thumbnailTemplateId', data.thumbnailTemplateId);
+      }
+      formData.append('timezone', data.timezone);
+      formData.append('scheduleFrequency', data.scheduleFrequency);
+      if (data.cronExpression) {
+        formData.append('cronExpression', data.cronExpression);
+      }
+      if (data.intervalMinutes) {
+        formData.append('intervalMinutes', String(data.intervalMinutes));
+      }
+      if (data.startDate) {
+        formData.append('startAt', data.startDate);
+      }
+      if (data.endDate) {
+        formData.append('endAt', data.endDate);
+      }
+
+      // Append file if available
+      if (data.userAvatarFile) {
+        formData.append('image', data.userAvatarFile);
+      }
 
       const response = await fetch(
         'https://untolerative-len-rumblingly.ngrok-free.dev/user/create/pipeline',
         {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
             'ngrok-skip-browser-warning': 'true',
+            // Content-Type header must be omitted for FormData to set boundary
           },
-          body: JSON.stringify(payload),
+          body: formData,
         },
       );
 

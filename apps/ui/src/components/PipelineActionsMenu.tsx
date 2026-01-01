@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   MoreHorizontal,
@@ -19,14 +19,12 @@ import {
   Activity,
   Layers,
   Zap,
-  Globe,
   Clock,
   AlertTriangle,
   Edit3,
   Database,
   Tv,
   UploadCloud,
-  Tag,
   Image,
   User,
   UserPlus,
@@ -64,6 +62,7 @@ import {
   Scroll,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { PipelineSettingsModal } from './PipelineSettingsModal';
 
 interface MenuOption {
   label: string;
@@ -99,7 +98,7 @@ const MENU_DATA: MenuCategory[] = [
     label: 'Configuration & Settings',
     icon: <Settings className="w-4 h-4" />,
     options: [
-      { label: 'Edit pipeline name', action: 'edit_name', icon: <Edit3 className="w-4 h-4" /> },
+      { label: 'General settings', action: 'edit_name', icon: <Edit3 className="w-4 h-4" /> },
       {
         label: 'Configure content source',
         action: 'config_source',
@@ -110,11 +109,14 @@ const MENU_DATA: MenuCategory[] = [
         action: 'config_channel',
         icon: <Tv className="w-4 h-4" />,
       },
-      { label: 'Upload rules', action: 'rules_upload', icon: <UploadCloud className="w-4 h-4" /> },
+      { label: 'Edit profile picture', action: 'edit_avatar', icon: <User className="w-4 h-4" /> },
+      {
+        label: 'Uploading rules',
+        action: 'uploading_rules',
+        icon: <UploadCloud className="w-4 h-4" />,
+      },
       { label: 'Scheduling rules', action: 'rules_sched', icon: <Clock className="w-4 h-4" /> },
-      { label: 'Metadata strategy', action: 'meta_strat', icon: <Tag className="w-4 h-4" /> },
-      { label: 'Thumbnail rules', action: 'thumb_rules', icon: <Image className="w-4 h-4" /> },
-      { label: 'Language & region', action: 'lang_settings', icon: <Globe className="w-4 h-4" /> },
+
       {
         label: 'Additional settings',
         action: 'additional_settings',
@@ -286,10 +288,39 @@ const MENU_DATA: MenuCategory[] = [
   },
 ];
 
-export function PipelineActionsMenu() {
+interface PipelineActionsMenuProps {
+  pipeline?: {
+    name: string;
+    image_url?: string;
+    execution_mode?: 'manual' | 'scheduled';
+  };
+}
+
+export function PipelineActionsMenu({ pipeline }: PipelineActionsMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, align: 'right' }); // Added align
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState('general');
+
+  // Filter menu options based on pipeline state
+  const filteredMenuData = useMemo(() => {
+    return MENU_DATA.map((category: MenuCategory) => {
+      if (category.id === 'config') {
+        return {
+          ...category,
+          options: category.options.filter((option: MenuOption) => {
+            if (option.action === 'rules_sched') {
+              // Only show scheduling rules if mode is scheduled
+              return pipeline?.execution_mode === 'scheduled';
+            }
+            return true;
+          }),
+        };
+      }
+      return category;
+    });
+  }, [pipeline?.execution_mode]);
 
   // Ref for the active category button to calculate submenu position
   // We need to store refs for all category buttons
@@ -348,10 +379,10 @@ export function PipelineActionsMenu() {
       if (el) {
         const rect = el.getBoundingClientRect();
         // Calculate position
-        let top = rect.top;
+        const top = rect.top;
         // Align with the menu logic
         const isRightAligned = menuPosition.align === 'right';
-        let left = isRightAligned ? rect.right + 5 : rect.left - 245; // 240 width + margin
+        const left = isRightAligned ? rect.right + 5 : rect.left - 245; // 240 width + margin
 
         // Clamp vertically if needed? (Not implementing full collision detection for now)
         setSubmenuPosition({ top, left });
@@ -412,6 +443,26 @@ export function PipelineActionsMenu() {
     console.log('Action triggered:', action);
     setIsOpen(false);
     setActiveCategory(null);
+
+    const actionMap: Record<string, string> = {
+      edit_name: 'general',
+      edit_avatar: 'avatar',
+      uploading_rules: 'metadata',
+      rules_sched: 'scheduling',
+      config_source: 'source',
+      config_channel: 'youtube',
+
+      additional_settings: 'general',
+    };
+
+    if (actionMap[action]) {
+      if (!pipeline) {
+        console.warn('Pipeline data not provided to ActionsMenu, cannot open settings.');
+        return;
+      }
+      setSettingsSection(actionMap[action]);
+      setIsSettingsModalOpen(true);
+    }
   };
 
   return (
@@ -452,7 +503,7 @@ export function PipelineActionsMenu() {
                   // Clear active category on scroll to avoid detached submenus
                   onScroll={() => setActiveCategory(null)}
                 >
-                  {MENU_DATA.map((category) => {
+                  {filteredMenuData.map((category) => {
                     const isActive = activeCategory === category.id;
 
                     return (
@@ -515,7 +566,7 @@ export function PipelineActionsMenu() {
               }}
             >
               {(() => {
-                const category = MENU_DATA.find((c) => c.id === activeCategory);
+                const category = filteredMenuData.find((c) => c.id === activeCategory);
                 if (!category) return null;
 
                 return (
@@ -558,6 +609,14 @@ export function PipelineActionsMenu() {
         </AnimatePresence>,
         document.body,
       )}
+
+      {/* Settings Modal */}
+      <PipelineSettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        pipelineName={pipeline?.name}
+        initialSection={settingsSection}
+      />
     </>
   );
 }
