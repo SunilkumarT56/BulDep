@@ -1690,28 +1690,29 @@ function DashboardContent() {
 
                                       {/* Hover Tooltip for Stages */}
                                       {selectedPipeline.configuration.approvalFlow?.stages?.length >
-                                        0 && (
-                                        <div className="absolute bottom-full left-0 mb-2 w-48 p-3 bg-[#111] border border-[#333] rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none">
-                                          <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-2">
-                                            Flow Stages
-                                          </p>
-                                          <div className="space-y-1.5">
-                                            {selectedPipeline.configuration.approvalFlow.stages.map(
-                                              (stage, idx) => (
-                                                <div
-                                                  key={idx}
-                                                  className="flex items-center gap-2 text-xs text-zinc-300"
-                                                >
-                                                  <div className="w-4 h-4 rounded-full bg-[#222] flex items-center justify-center text-[9px] font-mono text-zinc-500 border border-[#333]">
-                                                    {idx + 1}
+                                        0 &&
+                                        selectedPipeline.configuration.approvalFlow.enabled && (
+                                          <div className="absolute bottom-full left-0 mb-2 w-48 p-3 bg-[#111] border border-[#333] rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none">
+                                            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-2">
+                                              Flow Stages
+                                            </p>
+                                            <div className="space-y-1.5">
+                                              {selectedPipeline.configuration.approvalFlow.stages.map(
+                                                (stage, idx) => (
+                                                  <div
+                                                    key={idx}
+                                                    className="flex items-center gap-2 text-xs text-zinc-300"
+                                                  >
+                                                    <div className="w-4 h-4 rounded-full bg-[#222] flex items-center justify-center text-[9px] font-mono text-zinc-500 border border-[#333]">
+                                                      {idx + 1}
+                                                    </div>
+                                                    {stage}
                                                   </div>
-                                                  {stage}
-                                                </div>
-                                              ),
-                                            )}
+                                                ),
+                                              )}
+                                            </div>
                                           </div>
-                                        </div>
-                                      )}
+                                        )}
                                     </div>
                                   </div>
                                   <span

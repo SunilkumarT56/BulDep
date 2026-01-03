@@ -1099,7 +1099,7 @@ export const trashController = AsyncHandler(
 
         res.json({
           status: true,
-          message: 'Pipeline restored successfully',
+          message: ERROR_CODES.PIPELINE_RESTORED_SUCCESSFULLY,
         });
         return;
       } catch (err) {
@@ -1122,14 +1122,16 @@ export const trashController = AsyncHandler(
 
       res.json({
         status: true,
-        message: 'Pipeline permanently deleted',
+        message: ERROR_CODES.PIPELINE_PERMANENTLY_DELETED,
       });
       return;
     }
 
     res.status(400).json({
       status: false,
-      message: 'Invalid event type',
+      message: ERROR_CODES.INVALID_EVENT_TYPE,
     });
   },
 );
+
+
