@@ -1,6 +1,6 @@
 import { Activity, BarChart2, CheckCircle, Clock } from 'lucide-react';
 
-export function GlobalAnalyticsSnapshot() {
+export function GlobalAnalyticsSnapshot({ activeCount = 0 }: { activeCount?: number }) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-[#2F2F2F] rounded-lg overflow-hidden border border-[#2F2F2F]">
       {/* Active Pipelines */}
@@ -9,7 +9,7 @@ export function GlobalAnalyticsSnapshot() {
           <Activity className="w-4 h-4" /> Active Pipelines
         </p>
         <p className="text-3xl font-bold text-[#FFFFFF]">
-          3 <span className="text-[#5A5A5A] text-xl font-normal">/ 5</span>
+          {activeCount} <span className="text-[#5A5A5A] text-xl font-normal">/ 5</span>
         </p>
       </div>
 

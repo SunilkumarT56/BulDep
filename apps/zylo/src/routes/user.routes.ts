@@ -19,7 +19,8 @@ import {
   editConfig,
   configAdavancedSettingsByName,
   trashController,
-  startAutomationController
+  startAutomationController,
+  countThePipelines,
 } from '../controllers/zylo.controller.js';
 import { upload } from '../middleware/upload.js';
 
@@ -41,24 +42,8 @@ router.get('/pipelines', authMiddleware, userPipelines);
 router.post('/pipelines/:name', authMiddleware, getPipelineByName);
 router.post('/update-pipelines/:name', authMiddleware, upload.single('image'), editConfig);
 router.delete('/delete-pipeline/:name', authMiddleware, deletePipelineByName);
-router.post('/update-advancedsettings/:name', authMiddleware, configAdavancedSettingsByName );
+router.post('/update-advancedsettings/:name', authMiddleware, configAdavancedSettingsByName);
 router.post('/trash', authMiddleware, trashController);
-router.post("/pipeline/run/:name",authMiddleware , startAutomationController)
+router.post('/pipeline/run/:name', authMiddleware, startAutomationController);
+router.get('/get-count-pipelines', authMiddleware, countThePipelines);
 export default router;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

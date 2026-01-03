@@ -1301,4 +1301,23 @@ export const startAutomationController = AsyncHandler(
     });
   },
 );
+export const countThePipelines = AsyncHandler(
+  async (req: AuthenticateUserRequest, res: Response): Promise<void> => {
+    const { id: userId } = req.user as { id: string };
+    const { rows } = await pool.query(
+      `
+      SELECT COUNT(*)::int AS count
+      FROM pipelines
+      WHERE owner_user_id = $1
+      `,
+      [userId],
+    );
+    console.log()
+    res.json({
+      status: true,
+      count: rows[0].count,
+    });
+    return new Promise(() => {});
+  },
+);
 

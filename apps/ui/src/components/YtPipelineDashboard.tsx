@@ -183,6 +183,35 @@ function DashboardContent() {
     message: string;
   } | null>(null);
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [activePipelinesCount, setActivePipelinesCount] = useState(0);
+
+  useEffect(() => {
+    const fetchActiveCount = async () => {
+      try {
+        const token =
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI1ZDUyMTFkMi1kODY5LTQwMTctYjdkNi01NDljMTQzYTYyYmQiLCJpYXQiOjE3NjcwMjIyNjQsImV4cCI6MTc2NzYyNzA2NH0.EA5Pfu0vIkHI5SatbEbZ6HLw2y6QStoXOALz5cRJTiM';
+        const response = await fetch(
+          'https://untolerative-len-rumblingly.ngrok-free.dev/user/get-count-pipelines',
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'ngrok-skip-browser-warning': 'true',
+            },
+          },
+        );
+        if (response.ok) {
+          const data = await response.json();
+          if (data.status) {
+            setActivePipelinesCount(data.count);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch active pipelines count', error);
+      }
+    };
+
+    fetchActiveCount();
+  }, []);
 
   const fetchTrashCount = async () => {
     try {
@@ -1274,7 +1303,7 @@ function DashboardContent() {
             <p className="text-[#9B9A97]">Global performance across all pipelines.</p>
           </div>
 
-          <GlobalAnalyticsSnapshot />
+          <GlobalAnalyticsSnapshot activeCount={activePipelinesCount} />
 
           <div className="mt-8 space-y-8">
             {/* Selected Pipeline Detail */}
