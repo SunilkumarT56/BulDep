@@ -202,3 +202,7 @@ interface DriveSourceConfig {
   driveFolderId: string;
 }
 
+export type AutomationValidationResult = {
+  ok : boolean,
+  errors : string[]
+}

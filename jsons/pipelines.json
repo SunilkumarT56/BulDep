@@ -30,7 +30,7 @@
     },
     "thumbnail_config": { "mode": "auto" },
     "schedule_config": {
-      "timezone": "Asia/Calcutta",
+      "timezone": "Asia/Kolkata",
       "frequency": "cron",
       "cronExpression": "0 9 ** 1 - 5"
     },

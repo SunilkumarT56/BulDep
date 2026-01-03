@@ -7,6 +7,7 @@ import type {
   ThumbnailConfig,
   YouTubeConfig,
   ScheduleConfig,
+  AutomationValidationResult,
 } from '@zylo/types';
 import { pool } from '../config/postgresql.js';
 import axios from 'axios';
@@ -693,30 +694,49 @@ export const getPipelineByName = AsyncHandler(
   async (req: AuthenticateUserRequest, res: Response): Promise<void> => {
     const { id: userId } = req.user as { id: string };
     const { name } = req.params as { name: string };
+
     const { rows } = await pool.query(
       `
-    SELECT id,
-  name,
-  image_url,
-  owner_user_id,
-  pipeline_type,
-  execution_mode,
-  content_source,
-  youtube_config,
-  metadata_strategy,
-  thumbnail_config,
-  schedule_config,
-  approval_flow,
-  admin_settings,
-  status,
-  color,
-  created_at,
-  events_integrations,
-  updated_at FROM pipelines WHERE name = $1 AND owner_user_id = $2
-    `,
+      SELECT
+        id,
+        name,
+        image_url,
+        owner_user_id,
+        pipeline_type,
+        execution_mode,
+        content_source,
+        youtube_config,
+        metadata_strategy,
+        thumbnail_config,
+        schedule_config,
+        approval_flow,
+        admin_settings,
+        status,
+        color,
+        created_at,
+        updated_at,
+        events_integrations
+      FROM pipelines
+      WHERE name = $1
+        AND owner_user_id = $2
+      LIMIT 1
+      `,
       [name, userId],
     );
+
     const row = rows[0];
+
+    if (!row) {
+      res.status(404).json({
+        status: false,
+        message: 'Pipeline not found',
+      });
+      return;
+    }
+
+    const isScheduled = row.execution_mode === 'schedule';
+    const scheduleConfig = isScheduled ? row.schedule_config : null;
+
     const orderedPipelineResponse = {
       header: {
         id: row.id,
@@ -731,15 +751,19 @@ export const getPipelineByName = AsyncHandler(
       readiness: {
         sourceConfigured: !!row.content_source,
         youtubeConnected: !!row.youtube_config?.oauthConnectionId,
-        scheduleConfigured: !!row.schedule_config,
+        scheduleConfigured: isScheduled && !!row.schedule_config,
         adminLimitsApplied: !!row.admin_settings,
         verified: row.status === 'VERIFIED',
       },
 
       configuration: {
         contentSource: row.content_source.type,
-        approvalFlow: row.approval_flow.enable,
-        stages: row.approval_flow.flow,
+        sourceConfig: row.content_source.config,
+
+        approvalFlow: {
+          enabled: row.approval_flow?.enabled ?? false,
+          stage: row.approval_flow?.stage ?? null,
+        },
 
         youtube: {
           channelId: row.youtube_config.channelId,
@@ -758,12 +782,19 @@ export const getPipelineByName = AsyncHandler(
 
         thumbnail: {
           mode: row.thumbnail_config.mode,
+          templateId: row.thumbnail_config.templateId ?? null,
         },
 
-        schedule: {
-          frequency: row.schedule_config.frequency,
-          timezone: row.schedule_config.timezone,
-        },
+        schedule: isScheduled
+          ? {
+              frequency: scheduleConfig.frequency,
+              timezone: scheduleConfig.timezone,
+              cronExpression: scheduleConfig.cronExpression ?? null,
+              intervalMinutes: scheduleConfig.intervalMinutes ?? null,
+              startAt: scheduleConfig.startAt ?? null,
+              endAt: scheduleConfig.endAt ?? null,
+            }
+          : null,
       },
 
       adminLimits: {
@@ -788,7 +819,6 @@ export const getPipelineByName = AsyncHandler(
           behavior: {
             nonBlocking: row.events_integrations?.behavior?.nonBlocking ?? true,
           },
-
           webhooks: {
             onSuccess: {
               enabled: row.events_integrations?.webhooks?.onSuccess?.enabled ?? false,
@@ -801,7 +831,6 @@ export const getPipelineByName = AsyncHandler(
               timeoutSeconds: row.events_integrations?.webhooks?.onFailure?.timeoutSeconds ?? 5,
             },
           },
-
           alerts: {
             slack: {
               enabled: row.events_integrations?.alerts?.slack?.enabled ?? false,
@@ -820,17 +849,12 @@ export const getPipelineByName = AsyncHandler(
         updatedAt: row.updated_at,
         ownerUserId: row.owner_user_id,
       },
-      approveFlow : {
-        enable: row.approval_flow.enable,
-        stage: row.approval_flow.stage
-      }
     };
-    console.log(orderedPipelineResponse);
+
     res.json({
       status: true,
       pipeline: orderedPipelineResponse,
     });
-    return new Promise(() => {});
   },
 );
 export const editConfig = AsyncHandler(
@@ -862,6 +886,7 @@ export const editConfig = AsyncHandler(
       startAt,
       endAt,
     } = req.body;
+    console.log(req.body);
 
     const image = req.file as Express.Multer.File | undefined;
 
@@ -914,14 +939,18 @@ export const editConfig = AsyncHandler(
       region,
     };
 
-    const scheduleConfig: ScheduleConfig = {
-      timezone,
-      frequency: scheduleFrequency,
-      cronExpression,
-      intervalMinutes,
-      startAt,
-      endAt,
-    };
+    let scheduleConfig: ScheduleConfig | null = null;
+
+    if (executionMode === 'scheduled') {
+      scheduleConfig = {
+        timezone,
+        frequency: scheduleFrequency,
+        cronExpression,
+        intervalMinutes,
+        startAt,
+        endAt,
+      };
+    }
 
     const thumbnailConfig: ThumbnailConfig = {
       templateId: thumbnailTemplateId,
@@ -1133,5 +1162,143 @@ export const trashController = AsyncHandler(
     });
   },
 );
+export const startAutomationController = AsyncHandler(
+  async (req: AuthenticateUserRequest, res: Response): Promise<void> => {
+    function validateStartAutomation(pipeline: any): AutomationValidationResult {
+      const errors: string[] = [];
 
+      if (!['CREATED', 'PAUSED'].includes(pipeline.status)) {
+        errors.push(`Pipeline cannot be started from status "${pipeline.status}".`);
+      }
+
+      if (pipeline.execution_mode !== 'scheduled') {
+        errors.push('Pipeline execution mode must be "schedule" to start automation.');
+      }
+
+      const schedule = pipeline.schedule_config;
+      if (!schedule) {
+        errors.push('Schedule configuration is missing.');
+      }
+
+      if (schedule) {
+        if (!schedule.timezone) {
+          errors.push('Schedule timezone is required.');
+        }
+
+        if (!['cron', 'interval'].includes(schedule.frequency)) {
+          errors.push('Schedule frequency must be either "cron" or "interval".');
+        }
+
+        if (schedule.frequency === 'cron') {
+          if (!schedule.cronExpression) {
+            errors.push('Cron expression is required for cron schedules.');
+          }
+        }
+
+        if (schedule.frequency === 'interval') {
+          if (typeof schedule.intervalMinutes !== 'number' || schedule.intervalMinutes <= 0) {
+            errors.push('Interval minutes must be a number greater than 0.');
+          }
+        }
+
+        if (schedule.startAt && schedule.endAt) {
+          if (new Date(schedule.startAt) >= new Date(schedule.endAt)) {
+            errors.push('Schedule start time must be before end time.');
+          }
+        }
+      }
+
+      const yt = pipeline.youtube_config;
+      if (!yt) {
+        errors.push('YouTube configuration is missing.');
+      } else {
+        if (!yt.channelId) {
+          errors.push('YouTube channel is not selected.');
+        }
+        if (!yt.oauthConnectionId) {
+          errors.push('YouTube OAuth connection is missing.');
+        }
+      }
+      const source = pipeline.content_source;
+      if (!source || !source.type) {
+        errors.push('Content source is not configured.');
+      }
+      const admin = pipeline.admin_settings;
+      if (!admin) {
+        errors.push('Admin limits are not configured.');
+      } else {
+        if (admin.maxConcurrentRuns < 1) {
+          errors.push('Max concurrent runs must be at least 1.');
+        }
+        if (admin.timeoutPerStepSeconds <= 0) {
+          errors.push('Timeout per step must be greater than 0.');
+        }
+      }
+
+      return {
+        ok: errors.length === 0,
+        errors,
+      };
+    }
+    const { id: userId } = req.user as { id: string };
+    const { name } = req.params as { name: string };
+
+    const { rows } = await pool.query(
+      `
+      SELECT *
+      FROM pipelines
+      WHERE name = $1
+        AND owner_user_id = $2
+      LIMIT 1
+      `,
+      [name, userId],
+    );
+
+    const pipeline = rows[0];
+
+    if (!pipeline) {
+      res.status(404).json({
+        status: false,
+        message: 'Pipeline not found',
+      });
+      return;
+    }
+
+    const validation = validateStartAutomation(pipeline);
+
+    if (!validation.ok) {
+      res.status(422).json({
+        status: false,
+        message: 'Pipeline is not ready for automation.',
+        reasons: validation.errors,
+      });
+      return;
+    }
+
+    const { rows: updatedRows } = await pool.query(
+      `
+      UPDATE pipelines
+      SET
+        status = 'ACTIVE',
+        updated_at = NOW()
+      WHERE id = $1
+      RETURNING id, name, status, execution_mode
+      `,
+      [pipeline.id],
+    );
+
+    const updated = updatedRows[0];
+
+    res.json({
+      status: true,
+      message: 'Automation started successfully.',
+      pipeline: {
+        id: updated.id,
+        name: updated.name,
+        status: updated.status,
+        executionMode: updated.execution_mode,
+      },
+    });
+  },
+);
 

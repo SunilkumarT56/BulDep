@@ -40,6 +40,7 @@ const TABS = [
   { id: 'events', label: 'Events & Integrations', icon: Bell },
   { id: 'safety', label: 'Safety Controls', icon: Shield },
   { id: 'observability', label: 'Observability', icon: Activity },
+  { id: 'scheduling', label: 'Scheduling', icon: Clock },
 ];
 
 export function PipelineAdvancedSettingsModal({
@@ -820,6 +821,112 @@ export function PipelineAdvancedSettingsModal({
                     }
                     icon={Shield}
                   />
+                </div>
+              )}
+
+              {/* TAB: SCHEDULING */}
+              {activeTab === 'scheduling' && (
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-xs text-zinc-400 font-medium">Timezone</label>
+                    <div className="relative">
+                      <select
+                        value={localSettings.scheduling?.timezone || 'UTC'}
+                        onChange={(e) =>
+                          setLocalSettings((prev) => ({
+                            ...prev,
+                            scheduling: {
+                              ...prev.scheduling!,
+                              timezone: e.target.value,
+                            },
+                          }))
+                        }
+                        className="w-full bg-[#202020] border border-[#333333] rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-500"
+                      >
+                        {Intl.supportedValuesOf('timeZone').map((tz) => (
+                          <option key={tz} value={tz}>
+                            {tz}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs text-zinc-400 font-medium">Frequency Type</label>
+                    <div className="flex bg-[#202020] p-1 rounded-lg border border-[#333333]">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setLocalSettings((prev) => ({
+                            ...prev,
+                            scheduling: { ...prev.scheduling!, frequency: 'cron' },
+                          }))
+                        }
+                        className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${
+                          localSettings.scheduling?.frequency === 'cron'
+                            ? 'bg-[#333] text-white'
+                            : 'text-zinc-500 hover:text-white'
+                        }`}
+                      >
+                        Cron Expression
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setLocalSettings((prev) => ({
+                            ...prev,
+                            scheduling: { ...prev.scheduling!, frequency: 'interval' },
+                          }))
+                        }
+                        className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${
+                          localSettings.scheduling?.frequency === 'interval'
+                            ? 'bg-[#333] text-white'
+                            : 'text-zinc-500 hover:text-white'
+                        }`}
+                      >
+                        Interval
+                      </button>
+                    </div>
+                  </div>
+
+                  {localSettings.scheduling?.frequency === 'cron' ? (
+                    <div className="space-y-1">
+                      <SettingInput
+                        label="Cron Expression"
+                        desc="Standard cron format (e.g. 0 9 * * 1-5 for 9am Mon-Fri)."
+                        value={localSettings.scheduling?.cronExpression || ''}
+                        onChange={(val) =>
+                          setLocalSettings((prev) => ({
+                            ...prev,
+                            scheduling: {
+                              ...prev.scheduling!,
+                              cronExpression: val as string,
+                            },
+                          }))
+                        }
+                        placeholder="* * * * *"
+                      />
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <SettingInput
+                        label="Interval (Minutes)"
+                        desc="Time between runs in minutes."
+                        value={localSettings.scheduling?.intervalMinutes || 60}
+                        onChange={(val) =>
+                          setLocalSettings((prev) => ({
+                            ...prev,
+                            scheduling: {
+                              ...prev.scheduling!,
+                              intervalMinutes: parseInt(val as string),
+                            },
+                          }))
+                        }
+                        type="number"
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -19,6 +19,7 @@ import {
   editConfig,
   configAdavancedSettingsByName,
   trashController,
+  startAutomationController
 } from '../controllers/zylo.controller.js';
 import { upload } from '../middleware/upload.js';
 
@@ -42,6 +43,7 @@ router.post('/update-pipelines/:name', authMiddleware, upload.single('image'), e
 router.delete('/delete-pipeline/:name', authMiddleware, deletePipelineByName);
 router.post('/update-advancedsettings/:name', authMiddleware, configAdavancedSettingsByName );
 router.post('/trash', authMiddleware, trashController);
+router.post("/pipeline/run/:name",authMiddleware , startAutomationController)
 export default router;
 
 

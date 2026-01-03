@@ -1,5 +1,6 @@
 // ... imports
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   Bot,
@@ -36,11 +37,13 @@ import {
   Globe,
   Video,
   ShieldAlert,
+  AlertTriangle,
   Baby,
   Type,
   FileText,
   Hash,
   Activity,
+  CheckCircle,
   CheckCircle2,
   SquareCheck,
 } from 'lucide-react';
@@ -169,6 +172,17 @@ function DashboardContent() {
   const [isTrashModalOpen, setIsTrashModalOpen] = useState(false);
   const [trashedPipelines, setTrashedPipelines] = useState<{ name: string }[]>([]);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [automationErrorData, setAutomationErrorData] = useState<{
+    message: string;
+    reasons: string[];
+  } | null>(null);
+  const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
+  const [isStartingAutomation, setIsStartingAutomation] = useState(false);
+  const [isProfilePopupOpen, setIsProfilePopupOpen] = useState(false);
+  const [automationSuccessData, setAutomationSuccessData] = useState<{
+    message: string;
+  } | null>(null);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
 
   const fetchTrashCount = async () => {
     try {
@@ -404,6 +418,14 @@ function DashboardContent() {
               nonBlocking: newSettings.events.webhookSettings?.behavior?.nonBlocking ?? true,
             },
           },
+          schedule: {
+            enabled: newSettings.scheduling?.enabled || false,
+            timezone: newSettings.scheduling?.timezone || 'UTC',
+            frequency: newSettings.scheduling?.frequency || 'cron',
+            cronExpression: newSettings.scheduling?.cronExpression,
+            intervalMinutes: newSettings.scheduling?.intervalMinutes,
+          },
+          executionMode: newSettings.scheduling?.enabled ? 'scheduled' : 'manual',
         };
 
         console.log('Sending payload:', payload);
@@ -428,6 +450,71 @@ function DashboardContent() {
         }
       } catch (error) {
         console.error('Error saving settings:', error);
+      }
+    }
+  };
+
+  const handleRunPipeline = async (pipelineName?: string, showBlur: boolean = false) => {
+    const targetName = pipelineName || selectedPipeline?.name;
+    if (!targetName) return;
+
+    if (showBlur) {
+      setIsStartingAutomation(true);
+      // Artificial delay to ensure user sees the loading state
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+
+    try {
+      const token =
+        localStorage.getItem('authToken') ||
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI1ZDUyMTFkMi1kODY5LTQwMTctYjdkNi01NDljMTQzYTYyYmQiLCJpYXQiOjE3NjcwMjIyNjQsImV4cCI6MTc2NzYyNzA2NH0.EA5Pfu0vIkHI5SatbEbZ6HLw2y6QStoXOALz5cRJTiM';
+
+      console.log(`Starting pipeline: ${targetName}`);
+
+      const response = await fetch(
+        `https://untolerative-len-rumblingly.ngrok-free.dev/user/pipeline/run/${targetName}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+            'ngrok-skip-browser-warning': 'true',
+          },
+        },
+      );
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (err) {
+        console.error('Failed to parse response JSON', err);
+      }
+
+      // Check for success: HTTP 200-299 AND logical success if 'status' field exists
+      if (response.ok && data?.status !== false) {
+        console.log('Pipeline started successfully', data);
+        setAutomationSuccessData({
+          message: data?.message || 'Automation started successfully.',
+        });
+        setIsSuccessModalOpen(true);
+        setTimeout(() => setIsSuccessModalOpen(false), 3000);
+      } else {
+        // Handle failure cases: 422 status OR logical failure (status: false)
+        if (response.status === 422 || data?.status === false) {
+          setAutomationErrorData({
+            message: data?.message || 'Pipeline cannot be started',
+            reasons: data?.reasons || [],
+          });
+          setIsErrorModalOpen(true);
+        } else {
+          console.error('Failed to start pipeline', data);
+        }
+      }
+    } catch (error) {
+      console.error('Error starting pipeline:', error);
+    } finally {
+      if (showBlur) {
+        setIsStartingAutomation(false);
       }
     }
   };
@@ -886,7 +973,10 @@ function DashboardContent() {
                                 >
                                   {/* Scale down to fit compact row */}
                                   <div className="scale-75 origin-center">
-                                    <PipelineActionsMenu pipeline={pipeline} />
+                                    <PipelineActionsMenu
+                                      pipeline={pipeline}
+                                      onRunPipeline={(name) => handleRunPipeline(name, true)}
+                                    />
                                   </div>
                                 </div>
                               </div>
@@ -1022,6 +1112,7 @@ function DashboardContent() {
                           preloadedSettings={
                             selectedPipeline?.name === pipeline.name ? advancedSettings : undefined
                           }
+                          onRunPipeline={(name) => handleRunPipeline(name, true)}
                         />
                       </div>
                     </div>
@@ -1069,9 +1160,75 @@ function DashboardContent() {
             {/* Profile & Team Group */}
 
             {/* Profile & Team Group */}
-            <div className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-[#2F2F2F] text-[#999] hover:text-[#E3E3E3] cursor-pointer transition-colors group">
-              <User className="w-4 h-4" />
-              <span className="text-sm font-medium">Profile</span>
+            <div className="relative">
+              <div
+                className={`flex items-center gap-2 px-2 py-1 rounded-md hover:bg-[#2F2F2F] cursor-pointer transition-colors group ${
+                  isProfilePopupOpen
+                    ? 'bg-[#2F2F2F] text-[#E3E3E3]'
+                    : 'text-[#999] hover:text-[#E3E3E3]'
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsProfilePopupOpen(!isProfilePopupOpen);
+                }}
+              >
+                <User className="w-4 h-4" />
+                <span className="text-sm font-medium">Profile</span>
+              </div>
+
+              {/* Profile Popup */}
+              <AnimatePresence>
+                {isProfilePopupOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                    transition={{ duration: 0.1 }}
+                    className="absolute bottom-full left-0 mb-2 w-72 bg-[#191919] border border-[#333] rounded-xl shadow-2xl overflow-hidden z-50 flex flex-col"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="p-4 pb-3">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 rounded-lg bg-black border border-[#333] flex items-center justify-center text-[#E3E3E3] overflow-hidden">
+                          {channelData?.thumbnails?.default?.url ? (
+                            <img
+                              src={channelData.thumbnails.default.url}
+                              alt="Profile"
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <Logo className="w-5 h-5 text-white" />
+                          )}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-white">Zylo</span>
+                          <span className="text-xs text-[#888]">Free Plan · 1 member</span>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button className="flex-1 flex items-center justify-center gap-2 h-8 rounded-lg border border-[#333] bg-[#252525] hover:bg-[#2F2F2F] hover:border-[#444] cursor-pointer transition-all text-xs font-medium text-zinc-300 hover:text-white">
+                          <Settings className="w-3.5 h-3.5" />
+                          Settings
+                        </button>
+                        <button className="flex-1 flex items-center justify-center gap-2 h-8 rounded-lg border border-[#333] bg-[#252525] hover:bg-[#2F2F2F] hover:border-[#444] cursor-pointer transition-all text-xs font-medium text-zinc-300 hover:text-white">
+                          <UserPlus className="w-3.5 h-3.5" />
+                          Invite members
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="px-4 py-3 border-t border-[#333] bg-[#202020]">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-[#888] font-medium">
+                          {userEmail || 'sunilbe2006@gmail.com'}
+                        </span>
+                        <Youtube className="w-4 h-4 text-red-500" />
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
             <div className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-[#2F2F2F] text-[#999] hover:text-[#E3E3E3] cursor-pointer transition-colors group">
               <Users className="w-4 h-4" />
@@ -1307,7 +1464,7 @@ function DashboardContent() {
                     <div className="flex flex-col items-end gap-3 shrink-0 ml-6">
                       {/* Run Pipeline & Settings */}
                       <div className="flex items-center gap-3">
-                        <Button className="h-10 px-6 bg-white text-black hover:bg-zinc-200 font-medium border border-transparent transition-colors group">
+                        <Button className="bg-white text-black hover:bg-zinc-200 transition-all font-semibold shadow-lg shadow-white/5 border border-transparent hover:border-zinc-300 h-10 px-6 font-medium group cursor-default">
                           <Play
                             className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform"
                             style={{
@@ -1660,22 +1817,24 @@ function DashboardContent() {
                                 </div>
 
                                 {/* Schedule */}
-                                <div className="flex items-center justify-between p-3 border-b border-[#2A2A2A]">
-                                  <div className="flex items-center gap-3">
-                                    <div className="p-1.5 rounded-md bg-[#2A2A2A] text-zinc-400">
-                                      <Clock className="w-4 h-4" />
+                                {selectedPipeline.execution_mode !== 'manual' && (
+                                  <div className="flex items-center justify-between p-3 border-b border-[#2A2A2A]">
+                                    <div className="flex items-center gap-3">
+                                      <div className="p-1.5 rounded-md bg-[#2A2A2A] text-zinc-400">
+                                        <Clock className="w-4 h-4" />
+                                      </div>
+                                      <span className="text-sm text-zinc-400">Schedule</span>
                                     </div>
-                                    <span className="text-sm text-zinc-400">Schedule</span>
+                                    <div className="text-right">
+                                      <div className="text-[#E3E3E3] text-xs font-mono">
+                                        {selectedPipeline.configuration.schedule?.frequency}
+                                      </div>
+                                      <div className="text-zinc-500 text-[10px]">
+                                        {selectedPipeline.configuration.schedule?.timezone}
+                                      </div>
+                                    </div>
                                   </div>
-                                  <div className="text-right">
-                                    <div className="text-[#E3E3E3] text-xs font-mono">
-                                      {selectedPipeline.configuration.schedule?.frequency}
-                                    </div>
-                                    <div className="text-zinc-500 text-[10px]">
-                                      {selectedPipeline.configuration.schedule?.timezone}
-                                    </div>
-                                  </div>
-                                </div>
+                                )}
 
                                 {/* Approval Flow */}
                                 <div className="flex items-center justify-between p-3">
@@ -2059,6 +2218,93 @@ function DashboardContent() {
           </>
         )}
       </AnimatePresence>
+      {createPortal(
+        <AnimatePresence>
+          {isErrorModalOpen && automationErrorData && (
+            <motion.div
+              key="automation-error-toast"
+              initial={{ opacity: 0, y: 20, x: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, x: 20, scale: 0.95 }}
+              className="fixed bottom-24 right-8 z-[1000] flex flex-col items-end pointer-events-none"
+            >
+              <div className="w-[400px] bg-[#191919] border border-red-500/20 rounded-xl shadow-2xl shadow-black/50 overflow-hidden pointer-events-auto ring-1 ring-red-500/20">
+                {/* Header */}
+                <div className="p-4 border-b border-[#2F2F2F] flex items-center justify-between bg-[#202020]/50 backdrop-blur-sm">
+                  <h3 className="text-white font-semibold flex items-center gap-2.5 text-sm">
+                    <div className="p-1.5 bg-red-500/10 rounded-md">
+                      <AlertTriangle className="w-4 h-4 text-red-500" />
+                    </div>
+                    {automationErrorData.message}
+                  </h3>
+                  <button
+                    onClick={() => setIsErrorModalOpen(false)}
+                    className="p-1 rounded hover:bg-[#333] text-zinc-400 hover:text-white transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Content */}
+                <div className="p-4 space-y-3 bg-[#191919]">
+                  <div className="text-xs text-zinc-400">
+                    Automation cannot be started due to the following issues:
+                  </div>
+                  <div className="space-y-2 max-h-[200px] overflow-y-auto custom-scrollbar">
+                    {automationErrorData.reasons.map((reason, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-start gap-2.5 p-2.5 bg-red-500/5 border border-red-500/10 rounded-lg text-xs text-red-200"
+                      >
+                        <div className="mt-1 shrink-0 w-1.5 h-1.5 rounded-full bg-red-500" />
+                        <span className="leading-relaxed opacity-90">{reason}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+          {isSuccessModalOpen && automationSuccessData && (
+            <motion.div
+              key="automation-success-toast"
+              initial={{ opacity: 0, y: 20, x: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, x: 20, scale: 0.95 }}
+              className="fixed bottom-24 right-8 z-[1000] flex flex-col items-end pointer-events-none"
+            >
+              <div className="w-[400px] bg-[#191919] border border-emerald-500/20 rounded-xl shadow-2xl shadow-emerald-900/10 overflow-hidden pointer-events-auto ring-1 ring-emerald-500/20">
+                <div className="p-4 flex items-center gap-3 bg-[#202020]/50 backdrop-blur-sm">
+                  <div className="p-2 bg-emerald-500/10 rounded-full shrink-0">
+                    <CheckCircle className="w-5 h-5 text-emerald-500" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-white font-semibold text-sm">Success</h3>
+                    <p className="text-zinc-400 text-xs mt-0.5">{automationSuccessData.message}</p>
+                  </div>
+                  <button
+                    onClick={() => setIsSuccessModalOpen(false)}
+                    className="p-1 rounded hover:bg-[#333] text-zinc-400 hover:text-white transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+          {isStartingAutomation && (
+            <motion.div
+              key="loading-overlay"
+              initial={{ opacity: 0, backdropFilter: 'blur(0px)' }}
+              animate={{ opacity: 1, backdropFilter: 'blur(4px)' }}
+              exit={{ opacity: 0, backdropFilter: 'blur(0px)' }}
+              transition={{ duration: 0.3 }}
+              className="fixed inset-0 z-[2000] bg-black/60 backdrop-blur-sm cursor-wait"
+            />
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
     </div>
   );
 }

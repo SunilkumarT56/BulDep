@@ -23,6 +23,7 @@ import {
   INITIAL_DATA,
   type ChannelData,
   type PrivacyStatus,
+  type ExecutionMode,
 } from './create-pipeline/types';
 
 // Import Steps
@@ -64,6 +65,8 @@ interface PipelineConfig {
   schedule?: {
     timezone?: string;
     frequency?: string;
+    cronExpression?: string;
+    intervalMinutes?: number;
   };
 }
 
@@ -87,14 +90,54 @@ const mapDetailsToData = (details: PipelineDetails): PipelineData => {
   const metadata = config.metadata || {};
   const schedule = config.schedule || {};
 
+  // Determine Source Type
+  let sourceType: any = 'upload';
+  if (details.source_type) {
+    sourceType = details.source_type;
+  } else if (config.contentSource) {
+    if (config.contentSource === 'Google Drive' || config.contentSource === 'google_drive')
+      sourceType = 'google_drive';
+    else if (config.contentSource === 'AWS S3' || config.contentSource === 's3') sourceType = 's3';
+    else if (
+      config.contentSource === 'Git Repository' ||
+      config.contentSource === 'git' ||
+      config.contentSource === 'git_repo'
+    )
+      sourceType = 'git';
+    else if (config.contentSource === 'upload') sourceType = 'upload';
+  }
+
+  // Extract Source Config
+  // Handle case where source_config might be returned as a string (if stored strictly as JSON string) or object
+  let sourceConfig: any = {};
+  const rawSourceConfig =
+    details.source_config || details.sourceConfig || (config as any).sourceConfig;
+
+  if (rawSourceConfig) {
+    if (typeof rawSourceConfig === 'string') {
+      try {
+        sourceConfig = JSON.parse(rawSourceConfig);
+      } catch (e) {
+        console.error('Failed to parse sourceConfig', e);
+      }
+    } else {
+      sourceConfig = rawSourceConfig;
+    }
+  }
+
   return {
     pipelineName: details.name || '',
     pipelineType: details.pipeline_type || 'youtube_long',
-    executionMode: details.execution_mode || 'manual',
+    executionMode: (details.executionMode || details.execution_mode || 'manual') as ExecutionMode,
 
     // Source
-    sourceType: config.contentSource === 'Google Drive' ? 'google_drive' : 'upload', // Simplified mapping
-    driveFolderId: '', // Need to extract if available in detailed config
+    sourceType: sourceType,
+    driveFolderId: sourceConfig.driveFolderId || '',
+    s3Bucket: sourceConfig.s3Bucket || '',
+    s3Prefix: sourceConfig.s3Prefix || '',
+    gitRepoUrl: sourceConfig.gitRepoUrl || sourceConfig.repoUrl || '',
+    gitBranch: sourceConfig.gitBranch || sourceConfig.branch || '',
+    gitPath: sourceConfig.gitPath || sourceConfig.path || '',
 
     // YouTube
     connectedChannelId: youtube.channelId || '',
@@ -112,8 +155,12 @@ const mapDetailsToData = (details: PipelineDetails): PipelineData => {
 
     // Scheduling
     timezone: schedule.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
-    scheduleFrequency: schedule.frequency === 'Cron Expression' ? 'cron' : 'interval',
-    cronExpression: '0 0 * * *', // Placeholder if not in details
+    scheduleFrequency:
+      schedule.frequency === 'Cron Expression' || schedule.frequency === 'cron'
+        ? 'cron'
+        : 'interval',
+    cronExpression: schedule.cronExpression || '0 0 * * *',
+    intervalMinutes: schedule.intervalMinutes || 60,
     color: details.color || INITIAL_DATA.color,
     userAvatar: details.image_url
       ? details.image_url.startsWith('http') || details.image_url.startsWith('data:')
@@ -299,7 +346,12 @@ export function PipelineSettingsModal({
       icon: <User className="w-4 h-4" />,
       component: <StepAvatar />,
     },
-  ];
+  ].filter((section) => {
+    if (section.id === 'scheduling') {
+      return pipelineData.executionMode === 'scheduled';
+    }
+    return true;
+  });
 
   if (!isOpen) return null;
 
@@ -424,6 +476,19 @@ export function PipelineSettingsModal({
                     switch (pipelineData.sourceType) {
                       case 'google_drive':
                         sourceConfig = { driveFolderId: pipelineData.driveFolderId };
+                        break;
+                      case 's3':
+                        sourceConfig = {
+                          s3Bucket: pipelineData.s3Bucket,
+                          s3Prefix: pipelineData.s3Prefix,
+                        };
+                        break;
+                      case 'git':
+                        sourceConfig = {
+                          gitRepoUrl: pipelineData.gitRepoUrl,
+                          gitBranch: pipelineData.gitBranch,
+                          gitPath: pipelineData.gitPath,
+                        };
                         break;
                       // Add s3/git cases if defined in pipelineData types, otherwise defaults to empty
                       case 'upload':

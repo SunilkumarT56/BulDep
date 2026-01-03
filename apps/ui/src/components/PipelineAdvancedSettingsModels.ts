@@ -59,4 +59,11 @@ export interface AdvancedSettings {
     lastSuccessAt: string;
     lastFailureAt: string;
   };
+  scheduling?: {
+    enabled: boolean;
+    timezone: string;
+    frequency: 'cron' | 'interval';
+    cronExpression?: string;
+    intervalMinutes?: number;
+  };
 }

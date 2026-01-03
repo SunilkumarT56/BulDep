@@ -301,6 +301,7 @@ interface PipelineActionsMenuProps {
     execution_mode?: 'manual' | 'scheduled';
   };
   preloadedSettings?: AdvancedSettings;
+  onRunPipeline?: (pipelineName?: string) => Promise<void> | void;
 }
 
 // ... (imports remain the same)
@@ -418,7 +419,11 @@ function DeleteConfirmationModal({
   );
 }
 
-export function PipelineActionsMenu({ pipeline, preloadedSettings }: PipelineActionsMenuProps) {
+export function PipelineActionsMenu({
+  pipeline,
+  preloadedSettings,
+  onRunPipeline,
+}: PipelineActionsMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, align: 'right' });
@@ -553,6 +558,15 @@ export function PipelineActionsMenu({ pipeline, preloadedSettings }: PipelineAct
 
     if (action === 'delete') {
       setIsDeleteModalOpen(true);
+      return;
+    }
+
+    if (action === 'start') {
+      if (onRunPipeline) {
+        onRunPipeline(pipeline?.name);
+      } else {
+        console.warn('onRunPipeline prop not provided');
+      }
       return;
     }
 
@@ -714,6 +728,26 @@ export function PipelineActionsMenu({ pipeline, preloadedSettings }: PipelineAct
                         rawPipeline.adminLimits?.integrations?.alerts?.discord?.webhookUrl ?? '',
                     },
                   },
+                },
+                scheduling: {
+                  enabled:
+                    rawPipeline.header?.executionMode === 'scheduled' ||
+                    rawPipeline.execution_mode === 'scheduled' ||
+                    false,
+                  timezone:
+                    rawPipeline.configuration?.schedule?.timezone ||
+                    rawPipeline.schedule_config?.timezone ||
+                    'UTC',
+                  frequency:
+                    rawPipeline.configuration?.schedule?.frequency ||
+                    rawPipeline.schedule_config?.frequency ||
+                    'cron',
+                  cronExpression:
+                    rawPipeline.configuration?.schedule?.cronExpression ||
+                    rawPipeline.schedule_config?.cronExpression,
+                  intervalMinutes:
+                    rawPipeline.configuration?.schedule?.intervalMinutes ||
+                    rawPipeline.schedule_config?.intervalMinutes,
                 },
               }));
             }
