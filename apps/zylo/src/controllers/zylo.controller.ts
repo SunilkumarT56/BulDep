@@ -26,6 +26,63 @@ import { uploadImageToS3 } from '../services/uploadToS3.js';
 import { isValidEmail, normalizeEmail } from '../utils/emailchecker.js';
 import crypto from 'crypto';
 
+const validateSchedulePayload = (
+  mode: string,
+  body: any,
+): { valid: boolean; config: ScheduleConfig | null; error?: string } => {
+  if (mode === 'manual') {
+    return { valid: true, config: null };
+  }
+
+  if (mode === 'scheduled') {
+    const { timezone, scheduleFrequency, cronExpression, intervalMinutes, startAt, endAt } = body;
+
+    if (!timezone) {
+      return {
+        valid: false,
+        config: null,
+        error: 'Timezone is required for scheduled execution.',
+      };
+    }
+
+    if (scheduleFrequency === 'cron') {
+      if (!cronExpression) {
+        return {
+          valid: false,
+          config: null,
+          error: 'Cron expression is mandatory for cron frequency.',
+        };
+      }
+    } else if (scheduleFrequency === 'interval') {
+      if (!intervalMinutes) {
+        return {
+          valid: false,
+          config: null,
+          error: 'Interval minutes are mandatory for interval frequency.',
+        };
+      }
+    } else {
+      return {
+        valid: false,
+        config: null,
+        error: 'Invalid or missing schedule frequency.',
+      };
+    }
+
+    const config: ScheduleConfig = {
+      timezone,
+      frequency: scheduleFrequency,
+      cronExpression: scheduleFrequency === 'cron' ? cronExpression : undefined,
+      intervalMinutes: scheduleFrequency === 'interval' ? intervalMinutes : undefined,
+      startAt,
+      endAt,
+    };
+    return { valid: true, config };
+  }
+
+  return { valid: false, config: null, error: 'Invalid execution mode.' };
+};
+
 export const userProfile = async (req: AuthenticateUserRequest, res: Response): Promise<void> => {
   const { id } = req.user as { id: string };
 
@@ -587,6 +644,7 @@ export const createNewPipeline = AsyncHandler(
       startAt,
       endAt,
     } = req.body;
+    console.log(req.body);
     const image = req.file;
     if (!image) {
       throw new Error(ERROR_CODES.IMAGE_REQUIRED);
@@ -614,17 +672,18 @@ export const createNewPipeline = AsyncHandler(
       [adminId],
     );
 
-    let scheduleConfig: ScheduleConfig | null = null;
+    const {
+      valid,
+      config: finalScheduleConfig,
+      error,
+    } = validateSchedulePayload(executionMode, req.body);
 
-    if (executionMode === 'scheduled') {
-      scheduleConfig = {
-        timezone,
-        frequency: scheduleFrequency,
-        cronExpression,
-        intervalMinutes,
-        startAt,
-        endAt,
-      };
+    if (!valid) {
+      res.status(400).json({
+        status: false,
+        message: error,
+      });
+      return;
     }
     const pipelineName = response.rows.find((row: any) => row.name === name);
     if (pipelineName) {
@@ -652,14 +711,7 @@ export const createNewPipeline = AsyncHandler(
       language,
       region,
     };
-    const ScheduleConfig: ScheduleConfig = {
-      timezone,
-      frequency: scheduleFrequency,
-      cronExpression,
-      intervalMinutes,
-      startAt,
-      endAt,
-    };
+
     const ThumbnailConfig: ThumbnailConfig = {
       templateId: thumbnailTemplateId,
       mode: thumbnailMode,
@@ -680,7 +732,7 @@ export const createNewPipeline = AsyncHandler(
           YouTubeConfig,
           MetadataStrategy,
           ThumbnailConfig,
-          ScheduleConfig,
+          finalScheduleConfig,
           color,
           imageUrl.url,
         ],
@@ -976,17 +1028,18 @@ export const editConfig = AsyncHandler(
       region,
     };
 
-    let scheduleConfig: ScheduleConfig | null = null;
+    const {
+      valid,
+      config: finalScheduleConfig,
+      error,
+    } = validateSchedulePayload(executionMode, req.body);
 
-    if (executionMode === 'scheduled') {
-      scheduleConfig = {
-        timezone,
-        frequency: scheduleFrequency,
-        cronExpression,
-        intervalMinutes,
-        startAt,
-        endAt,
-      };
+    if (!valid) {
+      res.status(400).json({
+        status: false,
+        message: error,
+      });
+      return;
     }
 
     const thumbnailConfig: ThumbnailConfig = {
@@ -1018,7 +1071,7 @@ export const editConfig = AsyncHandler(
         youTubeConfig,
         metadataStrategy,
         thumbnailConfig,
-        scheduleConfig,
+        finalScheduleConfig,
         color,
         imageUrl,
         name,
@@ -1699,4 +1752,4 @@ export const deleteMemberFromThePipeline = AsyncHandler(
     });
   },
 );
-export const unknownFunction = () => {}
+export const unknownFunction = () => {};
