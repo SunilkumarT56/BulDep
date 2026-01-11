@@ -14,7 +14,6 @@ import { ERROR_CODES } from '@zylo/errors';
 import { fetchMyChannelDetails } from '../services/youtube.service.js';
 import { GOOGLE_OAUTH_SCOPES } from '@zylo/scopes';
 import { getGooglePublicKeySomehow } from '../services/youtube.service.js';
-import type { AuthenticateUserRequest } from '@zylo/types';
 
 export const oauthGoogleController = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
@@ -135,7 +134,6 @@ export const redirectHandlerGoogleController = asyncHandler(async (req: Request,
     client.release();
   }
 });
-
 export const oauthGithubController = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
     const state = crypto.randomBytes(16).toString('hex');
