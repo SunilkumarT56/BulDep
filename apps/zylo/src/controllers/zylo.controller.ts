@@ -25,6 +25,7 @@ import { fetchMyChannelDetails, getValidGoogleAccessToken } from '../services/yo
 import { uploadImageToS3 } from '../services/uploadToS3.js';
 import { isValidEmail, normalizeEmail } from '../utils/emailchecker.js';
 import crypto from 'crypto';
+import { emailSender } from '../utils/deque.js';
 
 const validateSchedulePayload = (
   mode: string,
@@ -82,7 +83,6 @@ const validateSchedulePayload = (
 
   return { valid: false, config: null, error: 'Invalid execution mode.' };
 };
-
 export const userProfile = async (req: AuthenticateUserRequest, res: Response): Promise<void> => {
   const { id } = req.user as { id: string };
 
@@ -1515,7 +1515,6 @@ export const getMembersBypipeline = AsyncHandler(
 );
 export const inviteMembersToPipeline = AsyncHandler(
   async (req: AuthenticateUserRequest, res: Response) => {
-    await redisClient.connect();
     const { id: userId } = req.user as { id: string };
     const { name } = req.params as { name: string };
     let { email, role } = req.body as { email: string; role: string };
@@ -1672,11 +1671,11 @@ export const acceptMembersToPipeline = AsyncHandler(async (req: Request, res: Re
 
   await pool.query(
     `
-      INSERT INTO pipeline_members (pipeline_id, email, role)
-      VALUES ($1, $2, $3)
+      INSERT INTO pipeline_members (pipeline_id, role)
+      VALUES ($1, $2)
       ON CONFLICT DO NOTHING
       `,
-    [invite.pipeline_id, invite.email, invite.role],
+    [invite.pipeline_id, invite.role],
   );
 
   await pool.query(

@@ -51,5 +51,5 @@ router.post('/pipeline/run/:name', authMiddleware, startAutomationController);
 router.get('/get-count-pipelines', authMiddleware, countThePipelines);
 router.get('/get-members/:name', authMiddleware, getMembersBypipeline);
 router.post('/pipelines/:name/invites', authMiddleware, inviteMembersToPipeline);
-router.get('//invites', acceptMembersToPipeline);
+router.get('/invites', acceptMembersToPipeline);
 export default router;

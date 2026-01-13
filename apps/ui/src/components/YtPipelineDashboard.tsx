@@ -1119,7 +1119,7 @@ function DashboardContent() {
             {isPipelinesExpanded && (
               <div className="space-y-0.5 mb-6">
                 {pipelines
-                  .slice(sidebarPipelinePage * 3, (sidebarPipelinePage + 1) * 3)
+                  .slice(sidebarPipelinePage * 2, (sidebarPipelinePage + 1) * 2)
                   .map((pipeline) => (
                     <div
                       key={pipeline._id || pipeline.name}
@@ -1151,7 +1151,7 @@ function DashboardContent() {
                 )}
 
                 {/* Pagination Controls */}
-                {pipelines.length > 3 && (
+                {pipelines.length > 2 && (
                   <div className="flex items-center justify-between px-2 pt-1">
                     {sidebarPipelinePage > 0 ? (
                       <span
@@ -1167,7 +1167,7 @@ function DashboardContent() {
                       <div />
                     )}
 
-                    {pipelines.length > (sidebarPipelinePage + 1) * 3 && (
+                    {pipelines.length > (sidebarPipelinePage + 1) * 2 && (
                       <span
                         className="text-[10px] text-blue-500 hover:text-blue-400 cursor-pointer font-medium select-none"
                         onClick={(e) => {

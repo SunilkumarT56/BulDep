@@ -62,6 +62,7 @@ import {
   Scroll,
   Search,
   SquareCheck,
+  Globe,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PipelineSettingsModal } from './PipelineSettingsModal';
@@ -462,6 +463,163 @@ interface PipelineActionsMenuProps {
   onRunPipeline?: (pipelineName?: string) => Promise<void> | void;
 }
 
+interface InviteMembersModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  pipelineName: string;
+}
+
+function InviteMembersModal({ isOpen, onClose, pipelineName }: InviteMembersModalProps) {
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState('VIEWER');
+  const [isSending, setIsSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setEmail('');
+      setRole('VIEWER');
+      setError(null);
+    }
+  }, [isOpen]);
+
+  const handleSend = async () => {
+    if (!email) {
+      setError('Email is required');
+      return;
+    }
+
+    // Simple email validation regex
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    setIsSending(true);
+    setError(null);
+    try {
+      const token =
+        localStorage.getItem('authToken') ||
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI1ZDUyMTFkMi1kODY5LTQwMTctYjdkNi01NDljMTQzYTYyYmQiLCJpYXQiOjE3Njc2NDAzODYsImV4cCI6MTc3NjE5Mzk4Nn0.8aandcUrp7hKDP8Ryw5xlP51Z0EZYKZyec8xM43lZUU';
+
+      const response = await fetch(
+        `https://untolerative-len-rumblingly.ngrok-free.dev/user/pipelines/${pipelineName}/invites`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+            'ngrok-skip-browser-warning': 'true',
+          },
+          body: JSON.stringify({ email, role }),
+        },
+      );
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.message || 'Failed to invite member');
+      }
+
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send invite');
+      console.error(err);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        className="relative bg-[#202020] border border-[#333] rounded-lg shadow-2xl w-full max-w-sm overflow-hidden"
+      >
+        <div className="px-4 py-3 border-b border-[#2F2F2F] flex items-center justify-between">
+          <h3 className="text-sm font-medium text-[#E3E3E3]">Invite people</h3>
+          <button
+            onClick={onClose}
+            className="text-[#9B9A97] hover:text-[#D4D4D4] transition-colors"
+          >
+            <XCircle className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-4">
+          <div className="flex flex-col gap-3">
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Email address"
+                  className="w-full bg-[#252525] border border-[#333] rounded px-3 py-1.5 text-sm text-[#E3E3E3] placeholder:text-[#9B9A97] focus:outline-none focus:border-[#4B4B4B] transition-colors"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <div className="relative">
+                  <select
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                    className="bg-[#252525] border border-[#333] rounded px-3 py-1.5 text-sm text-[#E3E3E3] appearance-none focus:outline-none focus:border-[#4B4B4B] pr-8 cursor-pointer"
+                  >
+                    <option value="VIEWER">VIEWER</option>
+                    <option value="EDITOR">EDITOR</option>
+                    <option value="REVIEWER">REVIEWER</option>
+                  </select>
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[#9B9A97]">
+                    <ChevronRight className="w-3 h-3 rotate-90" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {error && <div className="text-xs text-red-400 px-1">{error}</div>}
+
+            <button
+              onClick={handleSend}
+              disabled={isSending}
+              className="w-full bg-[#2383E2] hover:bg-[#1D74C9] text-white text-sm font-medium py-1.5 rounded transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSending ? (
+                <>
+                  <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                'Invite'
+              )}
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3 pt-2 text-xs text-[#9B9A97]">
+            <div className="flex items-center gap-1">
+              <Globe className="w-3 h-3" />
+              <span>Anyone with link can view</span>
+            </div>
+            <button className="text-[#2383E2] hover:underline ml-auto">Copy link</button>
+          </div>
+        </div>
+      </motion.div>
+    </div>,
+    document.body,
+  );
+}
+
 // ... (imports remain the same)
 
 // New Delete Confirmation Modal Component
@@ -593,6 +751,7 @@ export function PipelineActionsMenu({
   );
   const [settingsSection, setSettingsSection] = useState('general');
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isInviteMembersModalOpen, setIsInviteMembersModalOpen] = useState(false);
 
   // Filter menu options based on pipeline state
   const filteredMenuData = useMemo(() => {
@@ -689,9 +848,9 @@ export function PipelineActionsMenu({
         align = 'left';
       }
 
-      const menuHeight = 450;
+      const menuHeight = 680;
       if (spaceBelow < menuHeight) {
-        top = rect.bottom - menuHeight;
+        top = rect.bottom - menuHeight - 30;
         if (top < 10) top = 10;
       } else {
         top = rect.top;
@@ -727,6 +886,11 @@ export function PipelineActionsMenu({
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
       setMembersModalPos({ top: rect.top, left: rect.right + 10 });
       setIsMembersModalOpen(true);
+      return;
+    }
+
+    if (action === 'invite_members') {
+      setIsInviteMembersModalOpen(true);
       return;
     }
 
@@ -1265,6 +1429,12 @@ export function PipelineActionsMenu({
         onClose={() => setIsMembersModalOpen(false)}
         pipelineName={pipeline?.name || ''}
         position={membersModalPos}
+      />
+
+      <InviteMembersModal
+        isOpen={isInviteMembersModalOpen}
+        onClose={() => setIsInviteMembersModalOpen(false)}
+        pipelineName={pipeline?.name || ''}
       />
     </>
   );
